@@ -2,15 +2,16 @@
 FastAPI приложение: Учебная платформа по основам тестирования программного обеспечения
 """
 
+import os
 from fastapi import FastAPI, Request, Form, HTTPException, Depends, Query, Response
-from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, PlainTextResponse, StreamingResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 import sqlite3
 import uuid
 import re
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 import io
 
@@ -20,6 +21,9 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+
+# Database configuration from environment variable (for testing)
+DB_NAME = os.getenv("TESTLEARN_DB", "testlearn.db")
 
 app = FastAPI(title="TestLearn — Основы тестирования ПО")
 
@@ -39,6 +43,61 @@ def get_db():
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
+
+
+# ====== АУТЕНТИФИКАЦИЯ АДМИНИСТРАТОРА ======
+
+# В реальном приложении используйте хеширование паролей и хранение в БД
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "admin"
+
+
+def create_admin_session(username: str) -> str:
+    """Создать новую сессию для администратора."""
+    session_id = str(uuid.uuid4())
+    expires = datetime.now() + timedelta(hours=24)
+    conn = get_db()
+    try:
+        conn.execute(
+            "INSERT INTO admin_sessions (id, username, expires, created_at) VALUES (?, ?, ?, ?)",
+            (session_id, username, expires.isoformat(), datetime.now().isoformat())
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return session_id
+
+
+def verify_admin_session(request: Request) -> bool:
+    """Проверить, существует ли действительная сессия администратора."""
+    session_id = request.cookies.get("admin_session")
+    if not session_id:
+        return False
+    conn = get_db()
+    try:
+        cursor = conn.execute(
+            "SELECT username, expires FROM admin_sessions WHERE id = ?",
+            (session_id,)
+        )
+        row = cursor.fetchone()
+        if not row:
+            return False
+        expires = datetime.fromisoformat(row["expires"])
+        if expires < datetime.now():
+            # Сессия истекла, удаляем её
+            conn.execute("DELETE FROM admin_sessions WHERE id = ?", (session_id,))
+            conn.commit()
+            return False
+        return True
+    finally:
+        conn.close()
+
+
+def get_current_admin(request: Request):
+    """Dependency для защиты маршрутов админ-панели."""
+    if not verify_admin_session(request):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return True
 
 
 def init_db():
@@ -163,6 +222,16 @@ def init_db():
                 bookmarked_at TEXT NOT NULL,
                 PRIMARY KEY (session_id, topic_id),
                 FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
+            )
+        """)
+
+        # Таблица сессий администратора
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS admin_sessions (
+                id TEXT PRIMARY KEY,
+                username TEXT NOT NULL,
+                expires TEXT NOT NULL,
+                created_at TEXT NOT NULL
             )
         """)
 
@@ -2391,7 +2460,7 @@ async def admin_get_quizzes():
 # ====== АДМИН-ПАНЕЛЬ СТРАНИЦЫ ======
 
 @app.get("/admin/categories", response_class=HTMLResponse)
-async def admin_categories_page(request: Request):
+async def admin_categories_page(request: Request, _: bool = Depends(get_current_admin)):
     """Страница админ-панели для управления категориями."""
     return templates.TemplateResponse("admin/categories.html", {
         "request": request,
@@ -2400,7 +2469,7 @@ async def admin_categories_page(request: Request):
 
 
 @app.get("/admin/topics", response_class=HTMLResponse)
-async def admin_topics_page(request: Request):
+async def admin_topics_page(request: Request, _: bool = Depends(get_current_admin)):
     """Страница админ-панели для управления темами."""
     return templates.TemplateResponse("admin/topics.html", {
         "request": request,
@@ -2409,7 +2478,7 @@ async def admin_topics_page(request: Request):
 
 
 @app.get("/admin/questions", response_class=HTMLResponse)
-async def admin_questions_page(request: Request):
+async def admin_questions_page(request: Request, _: bool = Depends(get_current_admin)):
     """Страница админ-панели для управления вопросами."""
     return templates.TemplateResponse("admin/questions.html", {
         "request": request,
@@ -2418,7 +2487,7 @@ async def admin_questions_page(request: Request):
 
 
 @app.get("/admin/glossary", response_class=HTMLResponse)
-async def admin_glossary_page(request: Request):
+async def admin_glossary_page(request: Request, _: bool = Depends(get_current_admin)):
     """Страница админ-панели для управления глоссарием."""
     return templates.TemplateResponse("admin/glossary.html", {
         "request": request,
@@ -2447,7 +2516,7 @@ async def admin_get_quizzes():
 # ====== АДМИН-ПАНЕЛЬ СТРАНИЦЫ ======
 
 @app.get("/admin/categories", response_class=HTMLResponse)
-async def admin_categories_page(request: Request):
+async def admin_categories_page(request: Request, _: bool = Depends(get_current_admin)):
     """Страница админ-панели для управления категориями."""
     return templates.TemplateResponse("admin/categories.html", {
         "request": request,
@@ -2456,7 +2525,7 @@ async def admin_categories_page(request: Request):
 
 
 @app.get("/admin/topics", response_class=HTMLResponse)
-async def admin_topics_page(request: Request):
+async def admin_topics_page(request: Request, _: bool = Depends(get_current_admin)):
     """Страница админ-панели для управления темами."""
     return templates.TemplateResponse("admin/topics.html", {
         "request": request,
@@ -2465,7 +2534,7 @@ async def admin_topics_page(request: Request):
 
 
 @app.get("/admin/questions", response_class=HTMLResponse)
-async def admin_questions_page(request: Request):
+async def admin_questions_page(request: Request, _: bool = Depends(get_current_admin)):
     """Страница админ-панели для управления вопросами."""
     return templates.TemplateResponse("admin/questions.html", {
         "request": request,
@@ -2474,12 +2543,59 @@ async def admin_questions_page(request: Request):
 
 
 @app.get("/admin/glossary", response_class=HTMLResponse)
-async def admin_glossary_page(request: Request):
+async def admin_glossary_page(request: Request, _: bool = Depends(get_current_admin)):
     """Страница админ-панели для управления глоссарием."""
     return templates.TemplateResponse("admin/glossary.html", {
         "request": request,
         "active_page": "admin",
     })
+
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    """Страница входа в админ-панель."""
+    return templates.TemplateResponse("login.html", {
+        "request": request,
+        "active_page": "",
+    })
+
+
+@app.post("/login")
+async def login_process(request: Request, username: str = Form(...), password: str = Form(...)):
+    """Обработка формы входа."""
+    if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+        session_id = create_admin_session(username)
+        response = RedirectResponse(url="/admin/categories", status_code=302)
+        response.set_cookie(key="admin_session", value=session_id, httponly=True)
+        return response
+    else:
+        return templates.TemplateResponse("login.html", {
+            "request": request,
+            "active_page": "",
+            "error": "Неверное имя пользователя или пароль"
+        })
+
+
+@app.get("/logout")
+async def logout(request: Request):
+    """Выход из админ-панели."""
+    session_id = request.cookies.get("admin_session")
+    if session_id:
+        conn = get_db()
+        try:
+            conn.execute("DELETE FROM admin_sessions WHERE id = ?", (session_id,))
+            conn.commit()
+        finally:
+            conn.close()
+    response = RedirectResponse(url="/", status_code=302)
+    response.delete_cookie(key="admin_session")
+    return response
+
+
+@app.exception_handler(401)
+async def auth_exception_handler(request: Request, exc):
+    """Обработчик неавторизованного доступа - перенаправляем на страницу входа."""
+    return RedirectResponse(url="/login", status_code=302)
 
 
 @app.exception_handler(404)

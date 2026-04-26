@@ -21,7 +21,7 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 
-app = FastAPI(title="TestLearn — Основы тестирования ПО")
+app = FastAPI(title="TestLearn — Основы тестирования ПО", description="Платформа для изучения основ тестирования программного обеспечения", version="1.0.0")
 
 # Статика и шаблоны
 app.mount("/static", StaticFiles(directory="static"), name="static")

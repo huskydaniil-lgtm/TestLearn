@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./testlearn.db:/app/testlearn.db
+      - ./static:/app/static
+      - ./templates:/app/templates
+    environment:
+      - DEBUG=True
+    restart: unless-stopped

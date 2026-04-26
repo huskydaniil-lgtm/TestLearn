@@ -154,12 +154,37 @@ TestLearn предоставляет RESTful API для программного
    ```
 
 ### Запуск приложения
+
+#### Прямой запуск
 ```bash
 # Запуск сервера разработки
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
 # Открытие в браузере
 http://localhost:8000
+```
+
+#### Использование Docker
+```bash
+# Сборка и запуск с Docker Compose (рекомендуется)
+docker-compose up --build
+
+# Приложение будет доступно по адресу http://localhost:8000
+
+# Для запуска в фоновом режиме:
+docker-compose up -d
+
+# Для остановки и удаления контейнеров:
+docker-compose down
+```
+
+#### Ручное использование Docker
+```bash
+# Сборка Docker-образа
+docker build -t testlearn .
+
+# Запуск контейнера
+docker run -p 8000:8000 -v $(pwd)/testlearn.db:/app/testlearn.db testlearn
 ```
 
 Для развертывания в продакшене рекомендуется использовать сервер ASGI уровня production, например, Hypercorn или рабочие процессы Uvicorn за обратным прокси.

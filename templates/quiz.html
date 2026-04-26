@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}{{ quiz.title }} — TestLearn{% endblock %}
+
+{% block extra_css %}
+<style>
+    .timer-warning { color: #d97706; }
+    .timer-danger { color: #dc2626; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+var timeLeft = {{ time_limit }};
+var timerInterval;
+
+function updateProgress() {
+    var total = {{ questions|length }};
+    var form = document.getElementById('quiz-form');
+    var answered = form.querySelectorAll('input[type="radio"]:checked').length;
+    var pct = Math.round((answered / total) * 100);
+    document.getElementById('progress-bar').style.width = pct + '%';
+    document.getElementById('progress-text').textContent = answered + ' из ' + total;
+}
+
+function startTimer() {
+    timerInterval = setInterval(function() {
+        timeLeft--;
+        if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            document.getElementById('quiz-form').submit();
+            return;
+        }
+        var mins = Math.floor(timeLeft / 60);
+        var secs = timeLeft % 60;
+        var timerEl = document.getElementById('timer-display');
+        timerEl.textContent = mins + ':' + (secs < 10 ? '0' : '') + secs;
+
+        if (timeLeft <= 60) {
+            timerEl.className = 'text-lg font-bold timer-danger';
+        } else if (timeLeft <= 180) {
+            timerEl.className = 'text-lg font-bold timer-warning';
+        }
+    }, 1000);
+}
+
+function formatTime(seconds) {
+    var mins = Math.floor(seconds / 60);
+    var secs = seconds % 60;
+    return mins + ':' + (secs < 10 ? '0' : '') + secs;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('timer-display').textContent = formatTime(timeLeft);
+    startTimer();
+});
+</script>
+{% endblock %}
+
+{% block content %}
+
+<main class="flex-1 py-10">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        <!-- Прогресс и таймер -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8">
+            <div class="flex items-center justify-between mb-3">
+                <h1 class="text-xl font-bold text-gray-900">{{ quiz.title }}</h1>
+                <div class="flex items-center gap-2">
+                    <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <span id="timer-display" class="text-lg font-bold" style="color: #059669;">{{ (time_limit // 60) }}:{{ '%02d' | format(time_limit % 60) }}</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="flex-1">
+                    <div class="w-full bg-gray-100 rounded-full h-2">
+                        <div id="progress-bar" class="h-2 rounded-full transition-all duration-300" style="width: 0%; background-color: #10b981;"></div>
+                    </div>
+                    <div class="flex justify-between mt-1">
+                        <span class="text-xs text-gray-400" id="progress-text">0 из {{ questions|length }}</span>
+                        <span class="text-xs text-gray-400">{{ questions|length }} вопросов</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Форма теста -->
+        <form method="POST" action="/quiz/{{ quiz.id }}/submit" id="quiz-form">
+
+            {% for q in questions %}
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6" id="question-{{ loop.index }}">
+                <div class="flex items-start gap-3 mb-5">
+                    <span class="w-8 h-8 rounded-full text-sm font-bold flex items-center justify-center flex-shrink-0" style="background-color: #d1fae5; color: #047857;">{{ loop.index }}</span>
+                    <h2 class="text-lg font-semibold text-gray-900">{{ q.question_text }}</h2>
+                </div>
+                <div class="space-y-3 pl-11">
+                    <label class="option-label flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-emerald-300 transition">
+                        <input type="radio" name="q_{{ q.id }}" value="A" class="w-4 h-4" style="accent-color: #059669;" onchange="updateProgress()">
+                        <span class="option-box flex-1 text-sm text-gray-700"><strong>A.</strong> {{ q.option_a }}</span>
+                    </label>
+                    <label class="option-label flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-emerald-300 transition">
+                        <input type="radio" name="q_{{ q.id }}" value="B" class="w-4 h-4" style="accent-color: #059669;" onchange="updateProgress()">
+                        <span class="option-box flex-1 text-sm text-gray-700"><strong>B.</strong> {{ q.option_b }}</span>
+                    </label>
+                    <label class="option-label flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-emerald-300 transition">
+                        <input type="radio" name="q_{{ q.id }}" value="C" class="w-4 h-4" style="accent-color: #059669;" onchange="updateProgress()">
+                        <span class="option-box flex-1 text-sm text-gray-700"><strong>C.</strong> {{ q.option_c }}</span>
+                    </label>
+                    <label class="option-label flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-emerald-300 transition">
+                        <input type="radio" name="q_{{ q.id }}" value="D" class="w-4 h-4" style="accent-color: #059669;" onchange="updateProgress()">
+                        <span class="option-box flex-1 text-sm text-gray-700"><strong>D.</strong> {{ q.option_d }}</span>
+                    </label>
+                </div>
+            </div>
+            {% endfor %}
+
+            <div class="text-center pt-4">
+                <button type="submit" class="inline-flex items-center gap-2 px-8 py-3.5 font-semibold rounded-xl transition shadow-lg" style="background-color: #059669; color: #ffffff;">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    Завершить тест
+                </button>
+                <p class="text-xs text-gray-400 mt-3">Время истечения — автоотправка</p>
+            </div>
+        </form>
+
+    </div>
+</main>
+
+{% endblock %}

@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block title %}TestLearn — Основы тестирования ПО{% endblock %}
+
+{% block content %}
+
+<!-- Hero Section -->
+<section class="hero-gradient text-white py-20 lg:py-28">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <div class="animate-fade-in-up">
+            <span class="inline-block px-4 py-1.5 bg-white/20 rounded-full text-sm font-medium mb-6">Учебная платформа</span>
+            <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold mb-6 leading-tight">
+                Изучите основы<br>тестирования ПО
+            </h1>
+            <p class="text-lg sm:text-xl text-emerald-100 max-w-2xl mx-auto mb-10 leading-relaxed">
+                Комплексный образовательный ресурс для изучения видов тестирования, методологий,
+                инструментов и практики создания тестов
+            </p>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <a href="/theory" class="inline-flex items-center justify-center gap-2 px-8 py-3.5 font-semibold rounded-xl transition shadow-lg" style="background-color: #10b981; color: #ffffff;">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                    Начать обучение
+                </a>
+                <a href="/quiz" class="inline-flex items-center justify-center gap-2 px-8 py-3.5 font-semibold rounded-xl transition border border-white/30 hover:bg-white/20" style="color: #ffffff;">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 002-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                    Пройти тест
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Прогресс пользователя -->
+{% if progress and (progress.topics_read > 0 or progress.quizzes_passed > 0) %}
+<section class="py-6 bg-white border-b border-gray-100">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-xl" style="background-color: #ecfdf5; border: 1px solid #d1fae5;">
+            <div class="flex items-center gap-3">
+                <svg class="w-6 h-6" style="color: #059669;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <div>
+                    <span class="font-semibold text-gray-800">Ваш прогресс:</span>
+                    <span class="text-sm text-gray-600 ml-2">{{ progress.topics_read }} тем прочитано, {{ progress.quizzes_passed }} тестов пройдено, {{ progress.total_score }} баллов</span>
+                </div>
+            </div>
+            <a href="/stats" class="text-sm font-semibold" style="color: #059669;">Подробнее &rarr;</a>
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<!-- Статистика -->
+<section class="py-12 bg-white border-b border-gray-100">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div class="text-center p-6 rounded-xl" style="background-color: #ecfdf5;">
+                <div class="text-3xl font-extrabold stat-number" style="color: #047857;">{{ stats.categories }}</div>
+                <div class="text-sm font-medium mt-1" style="color: #059669;">Разделов теории</div>
+            </div>
+            <div class="text-center p-6 rounded-xl bg-blue-50">
+                <div class="text-3xl font-extrabold text-blue-700 stat-number">{{ stats.topics }}</div>
+                <div class="text-sm text-blue-600 font-medium mt-1">Тем и уроков</div>
+            </div>
+            <div class="text-center p-6 rounded-xl bg-amber-50">
+                <div class="text-3xl font-extrabold text-amber-700 stat-number">{{ stats.questions }}</div>
+                <div class="text-sm text-amber-600 font-medium mt-1">Вопросов в тестах</div>
+            </div>
+            <div class="text-center p-6 rounded-xl bg-purple-50">
+                <div class="text-3xl font-extrabold text-purple-700 stat-number">{{ stats.glossary }}</div>
+                <div class="text-sm text-purple-600 font-medium mt-1">Терминов в словаре</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Разделы -->
+<section class="py-16">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-12">
+            <h2 class="text-3xl font-bold text-gray-900 mb-3">Разделы обучения</h2>
+            <p class="text-gray-500 max-w-xl mx-auto">Выберите интересующий раздел для изучения основ тестирования программного обеспечения</p>
+        </div>
+        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for cat in categories %}
+            <div class="card-hover bg-white rounded-2xl p-6 shadow-sm border border-gray-100 cursor-pointer" onclick="window.location='/theory#{{ cat.slug }}'">
+                <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-4" style="background-color: #d1fae5;">
+                    <svg class="w-6 h-6" style="color: #059669;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-bold text-gray-900 mb-2">{{ cat.name }}</h3>
+                <p class="text-sm text-gray-500 mb-4 leading-relaxed">{{ cat.description }}</p>
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold px-3 py-1 rounded-full" style="background-color: #ecfdf5; color: #059669;">{{ cat.topic_count }} тем</span>
+                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<!-- Быстрые ссылки -->
+<section class="py-16 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid md:grid-cols-3 gap-8">
+            <a href="/quiz" class="group flex items-start gap-4 p-6 rounded-2xl border border-gray-100 transition" style="border-color: #e5e7eb;" onmouseover="this.style.borderColor='#10b981'; this.style.backgroundColor='rgba(236,253,245,0.3)';" onmouseout="this.style.borderColor='#e5e7eb'; this.style.backgroundColor='transparent';">
+                <div class="w-14 h-14 bg-amber-100 rounded-2xl flex items-center justify-center flex-shrink-0 group-hover:bg-amber-200 transition" style="background-color: #fef3c7;">
+                    <svg class="w-7 h-7 text-amber-600" style="color: #d97706;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+                <div>
+                    <h3 class="font-bold text-gray-900 mb-1" style="color: #111827;" onmouseover="this.style.color='#047857';" onmouseout="this.style.color='#111827';">Пройти тест</h3>
+                    <p class="text-sm text-gray-500">Проверьте свои знания по основам тестирования</p>
+                </div>
+            </a>
+            <a href="/glossary" class="group flex items-start gap-4 p-6 rounded-2xl border border-gray-100 transition" style="border-color: #e5e7eb;" onmouseover="this.style.borderColor='#10b981'; this.style.backgroundColor='rgba(236,253,245,0.3)';" onmouseout="this.style.borderColor='#e5e7eb'; this.style.backgroundColor='transparent';">
+                <div class="w-14 h-14 bg-purple-100 rounded-2xl flex items-center justify-center flex-shrink-0 group-hover:bg-purple-200 transition" style="background-color: #f3e8ff;">
+                    <svg class="w-7 h-7 text-purple-600" style="color: #9333ea;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                </div>
+                <div>
+                    <h3 class="font-bold text-gray-900 mb-1" style="color: #111827;" onmouseover="this.style.color='#047857';" onmouseout="this.style.color='#111827';">Глоссарий</h3>
+                    <p class="text-sm text-gray-500">Словарь терминов тестировщика</p>
+                </div>
+            </a>
+            <a href="/stats" class="group flex items-start gap-4 p-6 rounded-2xl border border-gray-100 transition" style="border-color: #e5e7eb;" onmouseover="this.style.borderColor='#10b981'; this.style.backgroundColor='rgba(236,253,245,0.3)';" onmouseout="this.style.borderColor='#e5e7eb'; this.style.backgroundColor='transparent';">
+                <div class="w-14 h-14 bg-blue-100 rounded-2xl flex items-center justify-center flex-shrink-0 group-hover:bg-blue-200 transition" style="background-color: #dbeafe;">
+                    <svg class="w-7 h-7 text-blue-600" style="color: #2563eb;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                </div>
+                <div>
+                    <h3 class="font-bold text-gray-900 mb-1" style="color: #111827;" onmouseover="this.style.color='#047857';" onmouseout="this.style.color='#111827';">Статистика</h3>
+                    <p class="text-sm text-gray-500">Аналитика и результаты тестирования</p>
+                </div>
+            </a>
+        </div>
+    </div>
+</section>
+
+{% endblock %}

@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Глоссарий — TestLearn{% endblock %}
+
+{% block extra_css %}
+<style>
+    .letter-btn.active-letter {
+        background-color: #059669 !important;
+        color: white !important;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function filterByLetter(letter) {
+        document.querySelectorAll('.letter-btn').forEach(function(btn) {
+            btn.classList.remove('active-letter');
+            btn.style.backgroundColor = '#d1fae5';
+            btn.style.color = '#047857';
+        });
+        if (letter) {
+            event.target.classList.add('active-letter');
+            event.target.style.backgroundColor = '#059669';
+            event.target.style.color = 'white';
+        }
+        var form = document.getElementById('search-form');
+        form.elements['letter'].value = letter || '';
+        form.submit();
+    }
+</script>
+{% endblock %}
+
+{% block content %}
+
+<!-- Заголовок -->
+<div class="bg-white border-b border-gray-100 py-10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-3">Глоссарий терминов</h1>
+        <p class="text-gray-500 max-w-xl mx-auto">Словарь основных терминов и понятий тестирования программного обеспечения</p>
+    </div>
+</div>
+
+<main class="flex-1 py-12">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        <!-- Поиск -->
+        <form id="search-form" method="GET" action="/glossary" class="mb-8">
+            <input type="hidden" name="letter" value="{{ active_letter }}">
+            <div class="flex gap-3">
+                <div class="flex-1 relative">
+                    <svg class="w-5 h-5 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    <input type="text" name="search" value="{{ search_query }}" placeholder="Поиск по терминам и определениям..." 
+                           class="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 outline-none text-sm transition">
+                </div>
+                <button type="submit" class="px-6 py-3 font-semibold rounded-xl transition" style="background-color: #059669; color: #ffffff;">
+                    Найти
+                </button>
+                {% if search_query or active_letter %}
+                <a href="/glossary" class="btn-outline px-6 py-3 font-semibold rounded-xl transition" style="border: 1px solid #d1d5db; color: #374151;">
+                    Сброс
+                </a>
+                {% endif %}
+            </div>
+        </form>
+
+        <!-- Быстрая навигация по буквам -->
+        <div class="flex flex-wrap gap-2 mb-8 justify-center">
+            <button onclick="filterByLetter('')" class="letter-btn w-10 h-10 rounded-lg font-bold text-sm flex items-center justify-center transition" style="background-color: {% if not active_letter %}#059669{% else %}#d1fae5{% endif %}; color: {% if not active_letter %}white{% else %}#047857{% endif %};">Все</button>
+            {% for letter in all_letters %}
+            <button onclick="filterByLetter('{{ letter }}')" class="letter-btn w-10 h-10 rounded-lg font-bold text-sm flex items-center justify-center transition" style="background-color: {% if active_letter == letter %}#059669{% else %}#d1fae5{% endif %}; color: {% if active_letter == letter %}white{% else %}#047857{% endif %};">{{ letter }}</button>
+            {% endfor %}
+        </div>
+
+        {% if search_query %}
+        <div class="mb-6 text-center">
+            <p class="text-sm text-gray-500">Результаты поиска по запросу: <strong class="text-gray-700">«{{ search_query }}»</strong></p>
+            <p class="text-xs text-gray-400 mt-1">Найдено терминов: {{ terms|length }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Термины -->
+        {% if terms %}
+        <div class="space-y-3">
+            {% for t in terms %}
+            <details class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+                <summary class="flex items-center justify-between p-4 hover:bg-gray-50 transition">
+                    <span class="font-semibold text-gray-800">{{ t.term }}</span>
+                    <svg class="w-5 h-5 text-gray-400 flex-shrink-0" style="transition:transform 0.2s" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                </summary>
+                <div class="px-4 pb-4 text-sm text-gray-600 leading-relaxed border-t border-gray-50 pt-3">
+                    {{ t.definition }}
+                </div>
+            </details>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-16">
+            <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <p class="text-gray-500 font-medium">Ничего не найдено</p>
+            <p class="text-sm text-gray-400 mt-1">Попробуйте изменить запрос или выбрать другую букву</p>
+        </div>
+        {% endif %}
+
+    </div>
+</main>
+
+{% endblock %}

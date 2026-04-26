@@ -1,0 +1,502 @@
+{% extends "admin_base.html" %}
+
+{% block admin_content %}
+<div class="space-y-6">
+    <div class="flex justify-between items-center">
+        <h2 class="text-xl font-semibold text-gray-700">Управление вопросами</h2>
+        <button id="addQuestionBtn" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition">
+            Добавить вопрос
+        </button>
+    </div>
+
+    <!-- Фильтр по викторине -->
+    <div class="mb-4">
+        <label for="quizFilter" class="block text-sm font-medium text-gray-700 mb-1">Фильтр по викторине:</label>
+        <select id="quizFilter" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="">Все викторины</option>
+            <!-- Опции будут заполнены через JavaScript -->
+        </select>
+    </div>
+
+    <!-- Форма добавления/редактирования вопроса -->
+    <div id="questionFormContainer" class="hidden bg-gray-50 p-4 rounded-lg">
+        <h3 class="text-lg font-medium text-gray-800 mb-4" id="questionFormTitle">Добавить новый вопрос</h3>
+        <form id="questionForm" class="space-y-4">
+            <input type="hidden" id="questionId">
+            <div>
+                <label for="questionQuiz" class="block text-sm font-medium text-gray-700 mb-1">Викторина</label>
+                <select id="questionQuiz" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <!-- Опции будут заполнены через JavaScript -->
+                </select>
+            </div>
+            <div>
+                <label for="questionText" class="block text-sm font-medium text-gray-700 mb-1">Текст вопроса</label>
+                <textarea id="questionText" rows="3" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label for="optionA" class="block text-sm font-medium text-gray-700 mb-1">Вариант A</label>
+                    <input type="text" id="optionA" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label for="optionB" class="block text-sm font-medium text-gray-700 mb-1">Вариант B</label>
+                    <input type="text" id="optionB" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label for="optionC" class="block text-sm font-medium text-gray-700 mb-1">Вариант C</label>
+                    <input type="text" id="optionC" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label for="optionD" class="block text-sm font-medium text-gray-700 mb-1">Вариант D</label>
+                    <input type="text" id="optionD" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+            </div>
+            <div>
+                <label for="correctOption" class="block text-sm font-medium text-gray-700 mb-1">Правильный вариант</label>
+                <select id="correctOption" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                    <option value="C">C</option>
+                    <option value="D">D</option>
+                </select>
+            </div>
+            <div>
+                <label for="explanation" class="block text-sm font-medium text-gray-700 mb-1">Объяснение (опционально)</label>
+                <textarea id="explanation" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+            </div>
+            <div>
+                <label for="questionOrder" class="block text-sm font-medium text-gray-700 mb-1">Порядок отображения (число, по умолчанию 0)</label>
+                <input type="number" id="questionOrder" value="0" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button type="button" id="cancelQuestionBtn" class="px-4 py-2 bg-gray-300 text-gray-800 rounded hover:bg-gray-400 transition">Отмена</button>
+                <button type="submit" id="saveQuestionBtn" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition">Сохранить</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Список вопросов -->
+    <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Викторина</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Вопрос</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Правильный ответ</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Порядок</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Действия</th>
+                </tr>
+            </thead>
+            <tbody id="questionsTableBody" class="bg-white divide-y divide-gray-200">
+                <!-- Строки будут заполнены через JavaScript -->
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const formContainer = document.getElementById('questionFormContainer');
+    const formTitle = document.getElementById('questionFormTitle');
+    const questionForm = document.getElementById('questionForm');
+    const questionIdInput = document.getElementById('questionId');
+    const addQuestionBtn = document.getElementById('addQuestionBtn');
+    const cancelQuestionBtn = document.getElementById('cancelQuestionBtn');
+    const saveQuestionBtn = document.getElementById('saveQuestionBtn');
+    const quizFilter = document.getElementById('quizFilter');
+    const questionsTableBody = document.getElementById('questionsTableBody');
+
+    // Загрузка викторин для выпадающих списков
+    function loadQuizzesForDropdowns() {
+        fetch('/admin/api/quizzes')
+        .then(response => response.json())
+        .then(quizzes => {
+            // Заполняем выпадающий список для фильтра
+            quizFilter.innerHTML = '<option value="">Все викторины</option>';
+            quizzes.forEach(quiz => {
+                const option = document.createElement('option');
+                option.value = quiz.id;
+                option.textContent = quiz.title;
+                quizFilter.appendChild(option);
+            });
+            // Заполняем выпадающий список в форме
+            const questionQuizSelect = document.getElementById('questionQuiz');
+            questionQuizSelect.innerHTML = '';
+            quizzes.forEach(quiz => {
+                const option = document.createElement('option');
+                option.value = quiz.id;
+                option.textContent = quiz.title;
+                questionQuizSelect.appendChild(option);
+            });
+        })
+        .catch(error => {
+            console.error('Error loading quizzes:', error);
+        });
+    }
+
+    // Загрузка вопросов при загрузке страницы или изменении фильтра
+    function loadQuestions() {
+        const quizId = quizFilter.value;
+        let url = '/admin/api/questions';
+        if (quizId) {
+            url += `?quiz_id=${quizId}`;
+        }
+        fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            questionsTableBody.innerHTML = '';
+            data.forEach(question => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">${question.id}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${question.quiz_title}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${question.question_text}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${question.correct_option}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${question.order_num}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button class="edit-question btn px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition mr-2" data-id="${question.id}">Редактировать</button>
+                        <button class="delete-question btn px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition" data-id="${question.id}">Удалить</button>
+                    </td>
+                `;
+                questionsTableBody.appendChild(tr);
+            });
+
+            // Добавляем обработчики для кнопок редактирования и удаления
+            document.querySelectorAll('.edit-question').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const id = this.getAttribute('data-id');
+                    editQuestion(id);
+                });
+            });
+
+            document.querySelectorAll('.delete-question').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const id = this.getAttribute('data-id');
+                    if (confirm('Вы уверены, что хотите удалить этот вопрос? Это действие нельзя отменить.')) {
+                        deleteQuestion(id);
+                    }
+                });
+            });
+        })
+        .catch(error => {
+            console.error('Error loading questions:', error);
+            questionsTableBody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-red-500">Ошибка загрузки вопросов</td></tr>';
+        });
+    }
+
+    // Инициализация
+    loadQuizzesForDropdowns();
+    loadQuestions();
+
+    // Обработчик изменения фильтра
+    quizFilter.addEventListener('change', loadQuestions);
+
+    // Показать форму для добавления нового вопроса
+    addQuestionBtn.addEventListener('click', function() {
+        formTitle.textContent = 'Добавить новый вопрос';
+        questionIdInput.value = '';
+        questionForm.reset();
+        document.getElementById('questionOrder').value = '0';
+        formContainer.classList.remove('hidden');
+    });
+
+    // Отмена редактирования/добавления
+    cancelQuestionBtn.addEventListener('click', function() {
+        formContainer.classList.add('hidden');
+    });
+
+    // Сохранение вопроса
+    questionForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const id = questionIdInput.value;
+        const quizId = document.getElementById('questionQuiz').value;
+        const questionText = document.getElementById('questionText').value.trim();
+        const optionA = document.getElementById('optionA').value.trim();
+        const optionB = document.getElementById('optionB').value.trim();
+        const optionC = document.getElementById('optionC').value.trim();
+        const optionD = document.getElementById('optionD').value.trim();
+        const correctOption = document.getElementById('correctOption').value;
+        const explanation = document.getElementById('explanation').value.trim();
+        const orderNum = parseInt(document.getElementById('questionOrder').value) || 0;
+
+        if (!quizId || !questionText || !optionA || !optionB || !optionC || !optionD || !correctOption) {
+            alert('Пожалуйста, заполните обязательные поля: викторина, текст вопроса, все варианты ответов и правильный вариант');
+            return;
+        }
+
+        const method = id ? 'PUT' : 'POST';
+        const url = id ? `/admin/api/questions/${id}` : '/admin/api/questions';
+
+        fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+                'quiz_id': quizId,
+                'question_text': questionText,
+                'option_a': optionA,
+                'option_b': optionB,
+                'option_c': optionC,
+                'option_d': optionD,
+                'correct_option': correctOption,
+                'explanation': explanation,
+                'order_num': orderNum
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => { throw err; });
+            }
+            return response.json();
+        })
+        .then(data => {
+            alert(id ? 'Вопрос успешно обновлен' : 'Вопрос успешно создан');
+            loadQuestions();
+            formContainer.classList.add('hidden');
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Ошибка: ' + (error.detail || 'Неизвестная ошибка'));
+        });
+    });
+
+    // Функция редактирования вопроса
+    function editQuestion(id) {
+        fetch(`/admin/api/questions/${id}`)
+        .then(response => response.json())
+        .then(question => {
+            formTitle.textContent = 'Редактировать вопрос';
+            questionIdInput.value = question.id;
+            document.getElementById('questionQuiz').value = question.quiz_id;
+            document.getElementById('questionText').value = question.question_text;
+            document.getElementById('optionA').value = question.option_a;
+            document.getElementById('optionB').value = question.option_b;
+            document.getElementById('optionC').value = question.option_c;
+            document.getElementById('optionD').value = question.option_d;
+            document.getElementById('correctOption').value = question.correct_option;
+            document.getElementById('explanation').value = question.explanation || '';
+            document.getElementById('questionOrder').value = question.order_num;
+            formContainer.classList.remove('hidden');
+        })
+        .catch(error => {
+            console.error('Error fetching question:', error);
+            alert('Ошибка загрузки вопроса для редактирования');
+        });
+    }
+
+    // Функция удаления вопроса
+    function deleteQuestion(id) {
+        fetch(`/admin/api/questions/${id}`, {
+            method: 'DELETE'
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => { throw err; });
+            }
+            return response.json();
+        })
+        .then(data => {
+            alert('Вопрос успешно удален');
+            loadQuestions();
+        })
+        .catch(error => {
+            console.error('Error deleting question:', error);
+            alert('Ошибка: ' + (error.detail || 'Неизвестная ошибка'));
+        });
+    }
+});
+</script>
+
+    // Загрузка вопросов при загрузке страницы или изменении фильтра
+    function loadQuestions() {
+        const quizId = quizFilter.value;
+        let url = '/admin/api/questions';
+        if (quizId) {
+            url += `?quiz_id=${quizId}`;
+        }
+        fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            questionsTableBody.innerHTML = '';
+            // Собираем уникальные викторины для выпадающего списка
+            const quizSet = new Set();
+            data.forEach(q => {
+                quizSet.add(q.quiz_title);
+            });
+            // Обновляем выпадающий список для фильтра викторины
+            quizFilter.innerHTML = '<option value="">Все викторины</option>';
+            quizSet.forEach(quizTitle => {
+                const option = document.createElement('option');
+                option.value = Array.from(data.find(q => q.quiz_title === quizTitle)).find(q => q.quiz_title === quizTitle).quiz_id; // Это неэффективно, но для демонстрации сойдет.
+                option.textContent = quizTitle;
+                quizFilter.appendChild(option);
+            });
+            // Заполняем таблицу вопросов
+            data.forEach(question => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">${question.id}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${question.quiz_title}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${question.question_text}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${question.correct_option}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${question.order_num}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button class="edit-question btn px-2 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition mr-2" data-id="${question.id}">Редактировать</button>
+                        <button class="delete-question btn px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 transition" data-id="${question.id}">Удалить</button>
+                    </td>
+                `;
+                questionsTableBody.appendChild(tr);
+            });
+
+            // Добавляем обработчики для кнопок редактирования и удаления
+            document.querySelectorAll('.edit-question').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const id = this.getAttribute('data-id');
+                    editQuestion(id);
+                });
+            });
+
+            document.querySelectorAll('.delete-question').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const id = this.getAttribute('data-id');
+                    if (confirm('Вы уверены, что хотите удалить этот вопрос? Это действие нельзя отменить.')) {
+                        deleteQuestion(id);
+                    }
+                });
+            });
+        })
+        .catch(error => {
+            console.error('Error loading questions:', error);
+            questionsTableBody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-red-500">Ошибка загрузки вопросов</td></tr>';
+        });
+    }
+
+    // Инициализация
+    loadQuestions();
+
+    // Обработчик изменения фильтра
+    quizFilter.addEventListener('change', loadQuestions);
+
+    // Показать форму для добавления нового вопроса
+    addQuestionBtn.addEventListener('click', function() {
+        formTitle.textContent = 'Добавить новый вопрос';
+        questionIdInput.value = '';
+        questionForm.reset();
+        document.getElementById('questionOrder').value = '0';
+        formContainer.classList.remove('hidden');
+    });
+
+    // Отмена редактирования/добавления
+    cancelQuestionBtn.addEventListener('click', function() {
+        formContainer.classList.add('hidden');
+    });
+
+    // Сохранение вопроса
+    questionForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const id = questionIdInput.value;
+        const quizId = document.getElementById('questionQuiz').value;
+        const questionText = document.getElementById('questionText').value.trim();
+        const optionA = document.getElementById('optionA').value.trim();
+        const optionB = document.getElementById('optionB').value.trim();
+        const optionC = document.getElementById('optionC').value.trim();
+        const optionD = document.getElementById('optionD').value.trim();
+        const correctOption = document.getElementById('correctOption').value;
+        const explanation = document.getElementById('explanation').value.trim();
+        const orderNum = parseInt(document.getElementById('questionOrder').value) || 0;
+
+        if (!quizId || !questionText || !optionA || !optionB || !optionC || !optionD || !correctOption) {
+            alert('Пожалуйста, заполните обязательные поля: викторина, текст вопроса, все варианты ответов и правильный вариант');
+            return;
+        }
+
+        const method = id ? 'PUT' : 'POST';
+        const url = id ? `/admin/api/questions/${id}` : '/admin/api/questions';
+
+        fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+                'quiz_id': quizId,
+                'question_text': questionText,
+                'option_a': optionA,
+                'option_b': optionB,
+                'option_c': optionC,
+                'option_d': optionD,
+                'correct_option': correctOption,
+                'explanation': explanation,
+                'order_num': orderNum
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => { throw err; });
+            }
+            return response.json();
+        })
+        .then(data => {
+            alert(id ? 'Вопрос успешно обновлен' : 'Вопрос успешно создан');
+            loadQuestions();
+            formContainer.classList.add('hidden');
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Ошибка: ' + (error.detail || 'Неизвестная ошибка'));
+        });
+    });
+
+    // Функция редактирования вопроса
+    function editQuestion(id) {
+        fetch(`/admin/api/questions/${id}`)
+        .then(response => response.json())
+        .then(question => {
+            formTitle.textContent = 'Редактировать вопрос';
+            questionIdInput.value = question.id;
+            document.getElementById('questionQuiz').value = question.quiz_id;
+            document.getElementById('questionText').value = question.question_text;
+            document.getElementById('optionA').value = question.option_a;
+            document.getElementById('optionB').value = question.option_b;
+            document.getElementById('optionC').value = question.option_c;
+            document.getElementById('optionD').value = question.option_d;
+            document.getElementById('correctOption').value = question.correct_option;
+            document.getElementById('explanation').value = question.explanation || '';
+            document.getElementById('questionOrder').value = question.order_num;
+            formContainer.classList.remove('hidden');
+        })
+        .catch(error => {
+            console.error('Error fetching question:', error);
+            alert('Ошибка загрузки вопроса для редактирования');
+        });
+    }
+
+    // Функция удаления вопроса
+    function deleteQuestion(id) {
+        fetch(`/admin/api/questions/${id}`, {
+            method: 'DELETE'
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => { throw err; });
+            }
+            return response.json();
+        })
+        .then(data => {
+            alert('Вопрос успешно удален');
+            loadQuestions();
+        })
+        .catch(error => {
+            console.error('Error deleting question:', error);
+            alert('Ошибка: ' + (error.detail || 'Неизвестная ошибка'));
+        });
+    }
+});
+</script>
+{% endblock %}

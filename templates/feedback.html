@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block title %}Обратная связь — TestLearn{% endblock %}
+
+{% block extra_css %}
+<style>
+    .star-rating { display: flex; gap: 4px; }
+    .star-rating input[type="radio"] { display: none; }
+    .star-rating label {
+        cursor: pointer;
+        font-size: 28px;
+        color: #d1d5db;
+        transition: color 0.15s;
+    }
+    .star-rating label:hover,
+    .star-rating label:hover ~ label,
+    .star-rating input[type="radio"]:checked ~ label {
+        color: #f59e0b;
+    }
+    .star-display { color: #f59e0b; font-size: 14px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Заголовок -->
+<div class="bg-white border-b border-gray-100 py-10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-3">Обратная связь</h1>
+        <div class="flex items-center justify-center gap-3 mb-2">
+            {% if avg_rating > 0 %}
+            <span class="star-display" style="font-size: 20px;">{% set full_stars = (avg_rating + 0.4)|int %}{% for i in range(full_stars) %}&#9733;{% endfor %}{% for i in range(5 - full_stars) %}<span style="color: #d1d5db;">&#9733;</span>{% endfor %}</span>
+            <span class="text-sm font-semibold text-gray-700">Средняя оценка: {{ avg_rating }}/5</span>
+            {% endif %}
+        </div>
+        <p class="text-gray-500 max-w-xl mx-auto">Напишите нам ваши пожелания, предложения или найденные ошибки</p>
+        {% if total_feedback > 0 %}
+        <p class="text-xs text-gray-400 mt-1">Всего отзывов: {{ total_feedback }}</p>
+        {% endif %}
+    </div>
+</div>
+
+<main class="flex-1 py-12">
+    <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        {% if success %}
+        <div class="bg-white rounded-2xl shadow-sm border p-6 mb-6 text-center" style="border-color: #d1fae5; background-color: #ecfdf5;">
+            <div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style="background-color: #d1fae5;">
+                <svg class="w-8 h-8" style="color: #059669;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            </div>
+            <h2 class="text-xl font-bold text-gray-900 mb-2">Спасибо за обращение!</h2>
+            <p class="text-sm text-gray-600">Ваше сообщение успешно отправлено. Мы учтём ваши пожелания.</p>
+            <a href="/feedback" class="btn-outline inline-flex items-center gap-2 mt-4 px-5 py-2.5 text-sm font-semibold rounded-xl transition" style="border: 1px solid #d1d5db; color: #374151;">
+                Отправить ещё
+            </a>
+        </div>
+        {% endif %}
+
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mb-8">
+            <h2 class="text-lg font-bold text-gray-900 mb-6">Написать сообщение</h2>
+            <form method="POST" action="/feedback">
+                <div class="space-y-6">
+                    <div>
+                        <label for="name" class="block text-sm font-semibold text-gray-700 mb-2">Ваше имя <span class="text-red-500">*</span></label>
+                        <input type="text" id="name" name="name" required placeholder="Введите имя"
+                               class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 outline-none text-sm transition">
+                    </div>
+                    <div>
+                        <label for="email" class="block text-sm font-semibold text-gray-700 mb-2">Электронная почта</label>
+                        <input type="email" id="email" name="email" placeholder="example@mail.ru"
+                               class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 outline-none text-sm transition">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Оценка платформы</label>
+                        <div class="star-rating">
+                            <input type="radio" id="star5" name="rating" value="5">
+                            <label for="star5" title="5 звёзд">&#9733;</label>
+                            <input type="radio" id="star4" name="rating" value="4">
+                            <label for="star4" title="4 звезды">&#9733;</label>
+                            <input type="radio" id="star3" name="rating" value="3">
+                            <label for="star3" title="3 звезды">&#9733;</label>
+                            <input type="radio" id="star2" name="rating" value="2">
+                            <label for="star2" title="2 звезды">&#9733;</label>
+                            <input type="radio" id="star1" name="rating" value="1">
+                            <label for="star1" title="1 звезда">&#9733;</label>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="message" class="block text-sm font-semibold text-gray-700 mb-2">Сообщение <span class="text-red-500">*</span></label>
+                        <textarea id="message" name="message" required rows="5" placeholder="Опишите ваши пожелания, найденные ошибки или предложения..."
+                                  class="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 outline-none text-sm transition resize-none"></textarea>
+                    </div>
+                    <div>
+                        <button type="submit" class="inline-flex items-center gap-2 px-8 py-3.5 font-semibold rounded-xl transition shadow-lg" style="background-color: #059669; color: #ffffff;">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                            Отправить сообщение
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Последние сообщения -->
+        {% if recent_feedback %}
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 mb-8">
+            <h2 class="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
+                <svg class="w-5 h-5" style="color: #059669;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+                Последние сообщения
+                <span class="text-xs font-semibold px-2 py-1 rounded-full" style="background-color: #ecfdf5; color: #059669;">{{ recent_feedback|length }}</span>
+            </h2>
+            <div class="space-y-4">
+                {% for fb in recent_feedback %}
+                <div class="p-4 rounded-xl bg-gray-50 border border-gray-100">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold" style="background-color: #d1fae5; color: #047857;">
+                                {{ fb.name[0] | upper }}
+                            </div>
+                            <span class="text-sm font-semibold text-gray-800">{{ fb.name }}</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            {% if fb.rating and fb.rating > 0 %}
+                            <span class="star-display">{% for i in range(fb.rating) %}&#9733;{% endfor %}{% for i in range(5 - fb.rating) %}<span style="color: #d1d5db;">&#9733;</span>{% endfor %}</span>
+                            {% endif %}
+                            <span class="text-xs text-gray-400">{{ fb.created_at[:16] }}</span>
+                        </div>
+                    </div>
+                    <p class="text-sm text-gray-600 leading-relaxed pl-10">{{ fb.message }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="bg-gray-50 rounded-2xl p-6 border border-gray-100">
+            <h3 class="font-bold text-gray-900 mb-3">Контактная информация</h3>
+            <div class="space-y-2 text-sm text-gray-600">
+                <p><strong>Проект:</strong> TestLearn — Учебная платформа по тестированию ПО</p>
+                <p><strong>Учебное заведение:</strong> Московский областной филиал МФЮА</p>
+                <p><strong>Автор:</strong> Самойлов Д.А.</p>
+                <p><strong>Дисциплина:</strong> Базы данных</p>
+            </div>
+        </div>
+
+    </div>
+</main>
+
+{% endblock %}

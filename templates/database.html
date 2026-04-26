@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+{% block title %}Структура базы данных — TestLearn{% endblock %}
+
+{% block extra_css %}
+<style>
+    .mermaid-wrapper {
+        display: flex;
+        justify-content: center;
+        overflow-x: auto;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+    mermaid.initialize({ startOnLoad: true, theme: 'base', themeVariables: { primaryColor: '#d1fae5', primaryTextColor: '#065f46', primaryBorderColor: '#059669', lineColor: '#059669' } });
+</script>
+{% endblock %}
+
+{% block content %}
+
+<!-- Заголовок -->
+<div class="bg-white border-b border-gray-100 py-10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-3">Структура базы данных</h1>
+        <p class="text-gray-500 max-w-xl mx-auto">СУБД: SQLite | Таблицы и связи проекта TestLearn</p>
+    </div>
+</div>
+
+<main class="flex-1 py-12">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        <!-- Инфо -->
+        <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-8 text-sm text-blue-700">
+            <strong>СУБД:</strong> SQLite (встроенная, однопользовательская)<br>
+            <strong>Тип БД:</strong> Реляционная<br>
+            <strong>ORM:</strong> Нет (сырой SQL через sqlite3 Python)<br>
+            <strong>Связи:</strong> FOREIGN KEY с CASCADE/SET NULL
+        </div>
+
+        <!-- ER-диаграмма -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-8">
+            <h2 class="text-lg font-bold text-gray-900 mb-4">ER-диаграмма</h2>
+            <div class="mermaid-wrapper">
+                <pre class="mermaid">
+erDiagram
+    categories {
+        INTEGER id PK
+        TEXT name
+        TEXT slug
+        TEXT description
+        TEXT icon
+    }
+    topics {
+        INTEGER id PK
+        INTEGER category_id FK
+        TEXT title
+        TEXT content
+        INTEGER order_num
+    }
+    quizzes {
+        INTEGER id PK
+        INTEGER category_id FK
+        TEXT title
+        TEXT description
+    }
+    questions {
+        INTEGER id PK
+        INTEGER quiz_id FK
+        TEXT question_text
+        TEXT option_a
+        TEXT option_b
+        TEXT option_c
+        TEXT option_d
+        TEXT correct_option
+        TEXT explanation
+        INTEGER order_num
+    }
+    quiz_results {
+        TEXT id PK
+        INTEGER quiz_id FK
+        INTEGER score
+        INTEGER total
+        TEXT created_at
+    }
+    glossary {
+        INTEGER id PK
+        TEXT term
+        TEXT definition
+        TEXT letter
+    }
+    feedback {
+        TEXT id PK
+        TEXT name
+        TEXT email
+        TEXT message
+        TEXT created_at
+    }
+    user_progress {
+        TEXT id PK
+        TEXT session_id
+        INTEGER topics_read
+        INTEGER quizzes_passed
+        INTEGER total_score
+        TEXT last_visit
+    }
+    read_topics {
+        TEXT session_id PK
+        INTEGER topic_id PK
+        TEXT read_at
+    }
+    bookmarks {
+        TEXT session_id PK
+        INTEGER topic_id PK
+        TEXT bookmarked_at
+    }
+    categories ||--o{ topics : "имеет"
+    categories ||--o{ quizzes : "имеет"
+    quizzes ||--o{ questions : "содержит"
+    quizzes ||--o{ quiz_results : "результаты"
+    topics ||--o{ read_topics : "прочитана"
+    topics ||--o{ bookmarks : "в закладках"
+                </pre>
+            </div>
+        </div>
+
+        <!-- Таблицы -->
+        <h2 class="text-lg font-bold text-gray-900 mb-4">Таблицы базы данных</h2>
+        <div class="grid md:grid-cols-2 gap-6">
+            {% for table in tables_info %}
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <div class="p-4 border-b border-gray-100 flex items-center justify-between" style="background-color: rgba(236,253,245,0.5);">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-5 h-5" style="color: #059669;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/></svg>
+                        <h3 class="font-bold text-gray-900">{{ table.name }}</h3>
+                    </div>
+                    <span class="text-xs font-semibold px-2 py-1 rounded-full" style="color: #059669; background-color: #d1fae5;">{{ table.count }} записей</span>
+                </div>
+                <div class="divide-y divide-gray-50">
+                    {% for col in table.columns %}
+                    <div class="px-4 py-2.5 flex items-center justify-between text-sm">
+                        <div class="flex items-center gap-2">
+                            <span class="font-mono text-gray-800 font-medium">{{ col.name }}</span>
+                            {% if col.pk %}
+                            <span class="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold">PK</span>
+                            {% endif %}
+                            {% if col.notnull %}
+                            <span class="text-xs bg-red-50 text-red-500 px-1.5 py-0.5 rounded">NOT NULL</span>
+                            {% endif %}
+                        </div>
+                        <span class="text-xs text-gray-400 font-mono">{{ col.type }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Схема связей -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mt-8">
+            <h2 class="text-lg font-bold text-gray-900 mb-4">Схема связей между таблицами</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-gray-200">
+                            <th class="text-left py-3 px-4 font-semibold text-gray-700">Таблица</th>
+                            <th class="text-left py-3 px-4 font-semibold text-gray-700">Связана с</th>
+                            <th class="text-left py-3 px-4 font-semibold text-gray-700">Тип связи</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        <tr><td class="py-2.5 px-4 font-mono">topics</td><td class="py-2.5 px-4 font-mono">categories</td><td class="py-2.5 px-4">Многие-к-одному (CASCADE)</td></tr>
+                        <tr><td class="py-2.5 px-4 font-mono">quizzes</td><td class="py-2.5 px-4 font-mono">categories</td><td class="py-2.5 px-4">Многие-к-одному (SET NULL)</td></tr>
+                        <tr><td class="py-2.5 px-4 font-mono">questions</td><td class="py-2.5 px-4 font-mono">quizzes</td><td class="py-2.5 px-4">Многие-к-одному (CASCADE)</td></tr>
+                        <tr><td class="py-2.5 px-4 font-mono">quiz_results</td><td class="py-2.5 px-4 font-mono">quizzes</td><td class="py-2.5 px-4">Многие-к-одному (CASCADE)</td></tr>
+                        <tr><td class="py-2.5 px-4 font-mono">read_topics</td><td class="py-2.5 px-4 font-mono">topics</td><td class="py-2.5 px-4">Многие-ко-многим (через session_id)</td></tr>
+                        <tr><td class="py-2.5 px-4 font-mono">bookmarks</td><td class="py-2.5 px-4 font-mono">topics</td><td class="py-2.5 px-4">Многие-ко-многим (через session_id)</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</main>
+
+{% endblock %}

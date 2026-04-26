@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Страница не найдена — TestLearn{% endblock %}
+
+{% block content %}
+
+<main class="flex-1 py-20">
+    <div class="max-w-2xl mx-auto px-4 text-center">
+        <div class="mb-8">
+            <span class="text-8xl font-extrabold" style="color: #059669;">404</span>
+        </div>
+        <h1 class="text-3xl font-bold text-gray-900 mb-4">Страница не найдена</h1>
+        <p class="text-gray-500 mb-8 text-lg">Запрашиваемая страница не существует или была перемещена</p>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+            <a href="/" class="inline-flex items-center justify-center gap-2 px-8 py-3.5 font-semibold rounded-xl transition shadow-lg" style="background-color: #059669; color: #ffffff;">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                На главную
+            </a>
+            <a href="/theory" class="btn-outline inline-flex items-center justify-center gap-2 px-8 py-3.5 font-semibold rounded-xl transition" style="border: 1px solid #d1d5db; color: #374151;">
+                К теории
+            </a>
+        </div>
+    </div>
+</main>
+
+{% endblock %}

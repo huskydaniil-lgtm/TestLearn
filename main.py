@@ -1,5 +1,6 @@
 """
 FastAPI приложение: Учебная платформа по основам тестирования программного обеспечения
+Улучшенная версия с геймификацией, поиском и рекомендациями
 """
 
 import os
@@ -21,6 +22,10 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+
+# Импорт моделей и сервисов
+from app.models import Achievement, DailyChallenge, CategoryStats
+from app.services import ProgressService, SearchService, RecommendationService, LeaderboardService, CertificateService, CommentService, NotificationService
 
 # Database configuration from environment variable (for testing)
 DB_NAME = os.getenv("TESTLEARN_DB", "testlearn.db")
@@ -231,6 +236,32 @@ def init_db():
                 id TEXT PRIMARY KEY,
                 username TEXT NOT NULL,
                 expires TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+        """)
+
+        # Таблица комментариев
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS comments (
+                id TEXT PRIMARY KEY,
+                topic_id INTEGER NOT NULL,
+                user_id TEXT NOT NULL,
+                content TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                likes INTEGER DEFAULT 0,
+                FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE CASCADE
+            )
+        """)
+
+        # Таблица уведомлений
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS notifications (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                title TEXT NOT NULL,
+                message TEXT NOT NULL,
+                type TEXT NOT NULL,
+                is_read INTEGER DEFAULT 0,
                 created_at TEXT NOT NULL
             )
         """)
@@ -943,7 +974,7 @@ def update_session_progress(session_id: str, field: str, increment: int = 1):
 
 
 def get_session_progress(session_id: str) -> dict:
-    """Получить данные о прогрессе сессии."""
+    """Получить данные о прогрессе сессии с геймификацией."""
     conn = get_db()
     try:
         row = conn.execute(
@@ -951,13 +982,28 @@ def get_session_progress(session_id: str) -> dict:
             (session_id,)
         ).fetchone()
         if row:
+            total_score = row["total_score"] or 0
+            # Расчет уровня и опыта
+            level, current_xp, next_level_xp = ProgressService.calculate_level(total_score)
+            
             return {
                 "topics_read": row["topics_read"] or 0,
                 "quizzes_passed": row["quizzes_passed"] or 0,
-                "total_score": row["total_score"] or 0,
+                "total_score": total_score,
                 "last_visit": row["last_visit"],
+                "level": level,
+                "experience": current_xp,
+                "next_level_xp": next_level_xp,
             }
-        return {"topics_read": 0, "quizzes_passed": 0, "total_score": 0, "last_visit": None}
+        return {
+            "topics_read": 0, 
+            "quizzes_passed": 0, 
+            "total_score": 0, 
+            "last_visit": None,
+            "level": 1,
+            "experience": 0,
+            "next_level_xp": 100
+        }
     finally:
         conn.close()
 
@@ -1165,6 +1211,8 @@ async def topic_detail(request: Request, topic_id: int):
                 (session_id, topic_id, datetime.now().isoformat())
             )
             conn2.commit()
+            # Добавляем опыт за прочтение темы (10 XP)
+            ProgressService.add_experience(session_id, 10)
         # Обновляем topics_read на основе реального COUNT прочитанных тем
         read_count = conn2.execute(
             "SELECT COUNT(*) FROM read_topics WHERE session_id = ?",
@@ -1375,9 +1423,17 @@ async def quiz_submit(request: Request, quiz_id: int):
     finally:
         conn.close()
 
-    # Обновляем прогресс пользователя
+    # Обновляем прогресс пользователя и добавляем опыт
     update_session_progress(session_id, "quizzes_passed")
     update_session_progress(session_id, "total_score", increment=score)
+    
+    # Добавляем бонусный опыт за прохождение теста (20 XP + бонус за отличный результат)
+    bonus_xp = 20
+    if percentage == 100:
+        bonus_xp += 30  # Бонус за идеальный результат
+    elif percentage >= 80:
+        bonus_xp += 15  # Бонус за хороший результат
+    ProgressService.add_experience(session_id, bonus_xp)
 
     percentage = int((score / total) * 100) if total > 0 else 0
 
@@ -1618,8 +1674,9 @@ async def feedback_submit(
 # ====== API ======
 
 @app.get("/api/stats")
-async def api_stats():
-    """API: Статистика в JSON."""
+async def api_stats(request: Request):
+    """API: Статистика с геймификацией."""
+    session_id = get_session_id(request)
     conn = get_db()
     try:
         total_results = conn.execute("SELECT COUNT(*) FROM quiz_results").fetchone()[0]
@@ -1629,15 +1686,54 @@ async def api_stats():
         total_topics = conn.execute("SELECT COUNT(*) FROM topics").fetchone()[0]
         total_quizzes = conn.execute("SELECT COUNT(*) FROM quizzes").fetchone()[0]
         total_feedback = conn.execute("SELECT COUNT(*) FROM feedback").fetchone()[0]
+        
+        # Получаем прогресс пользователя
+        progress = get_session_progress(session_id)
+        achievements = ProgressService.get_achievements(session_id)
+        daily_challenge = ProgressService.get_daily_challenge()
+        category_stats = ProgressService.get_category_stats(session_id)
     finally:
         conn.close()
 
+    unlocked_achievements = [a.model_dump() for a in achievements if a.unlocked]
+    
     return {
         "total_results": total_results,
         "average_score_percent": round(avg_score, 1),
         "total_topics": total_topics,
         "total_quizzes": total_quizzes,
         "total_feedback": total_feedback,
+        "user_progress": progress,
+        "unlocked_achievements": unlocked_achievements,
+        "daily_challenge": daily_challenge.model_dump() if daily_challenge else None,
+        "category_stats": [cs.model_dump() for cs in category_stats],
+    }
+
+
+@app.get("/api/search")
+async def api_search(q: str = Query(..., min_length=2)):
+    """API: Поиск по темам и глоссарию."""
+    results = SearchService.search(q)
+    return results.model_dump()
+
+
+@app.get("/api/recommendations")
+async def api_recommendations(request: Request, limit: int = Query(3, ge=1, le=10)):
+    """API: Рекомендации тем для изучения."""
+    session_id = get_session_id(request)
+    recommendations = RecommendationService.get_recommendations(session_id, limit)
+    return {
+        "recommendations": [r.model_dump() for r in recommendations]
+    }
+
+
+@app.get("/api/achievements")
+async def api_achievements(request: Request):
+    """API: Достижения пользователя."""
+    session_id = get_session_id(request)
+    achievements = ProgressService.get_achievements(session_id)
+    return {
+        "achievements": [a.model_dump() for a in achievements]
     }
 
 
@@ -1752,6 +1848,163 @@ async def favicon():
     """Favicon как SVG."""
     from fastapi.responses import Response
     svg = '''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+
+
+# ====== НОВЫЕ API ENDPOINTS ======
+
+@app.get("/api/leaderboard")
+async def api_leaderboard(limit: int = Query(10, ge=1, le=50)):
+    """API: Таблица лидеров."""
+    leaderboard = LeaderboardService.get_leaderboard(limit)
+    return {"leaderboard": [entry.model_dump() for entry in leaderboard]}
+
+
+@app.get("/api/certificate")
+async def api_certificate(request: Request):
+    """API: Получить сертификат пользователя."""
+    session_id = get_session_id(request)
+    certificate = CertificateService.generate_certificate(session_id)
+    if not certificate:
+        raise HTTPException(status_code=404, detail="Сертификат недоступен. Пройдите минимум 5 тестов.")
+    return {"certificate": certificate.model_dump()}
+
+
+@app.get("/api/comments/{topic_id}")
+async def api_get_comments(topic_id: int):
+    """API: Получить комментарии к теме."""
+    comments = CommentService.get_comments(topic_id)
+    return {"comments": [c.model_dump() for c in comments]}
+
+
+@app.post("/api/comments")
+async def api_add_comment(
+    topic_id: int = Form(...),
+    content: str = Form(..., min_length=1, max_length=1000)
+):
+    """API: Добавить комментарий к теме."""
+    # В реальном приложении использовать реальную аутентификацию
+    user_id = "anonymous_user"
+    comment = CommentService.add_comment(topic_id, user_id, content)
+    return {"comment": comment.model_dump(), "message": "Комментарий добавлен"}
+
+
+@app.post("/api/comments/{comment_id}/like")
+async def api_like_comment(comment_id: str):
+    """API: Поставить лайк комментарию."""
+    success = CommentService.like_comment(comment_id)
+    return {"success": success}
+
+
+@app.get("/api/notifications")
+async def api_get_notifications(request: Request):
+    """API: Получить непрочитанные уведомления."""
+    session_id = get_session_id(request)
+    notifications = NotificationService.get_unread_notifications(session_id)
+    return {"notifications": [n.model_dump() for n in notifications]}
+
+
+@app.post("/api/notifications/{notification_id}/read")
+async def api_mark_notification_read(notification_id: str):
+    """API: Отметить уведомление как прочитанное."""
+    success = NotificationService.mark_as_read(notification_id)
+    return {"success": success}
+
+
+@app.get("/stats/export/pdf")
+async def export_pdf(request: Request):
+    """Экспорт прогресса в PDF."""
+    session_id = get_session_id(request)
+    
+    conn = get_db()
+    try:
+        # Получить прогресс пользователя
+        progress = get_session_progress(session_id)
+        
+        # Получить результаты тестов
+        results = conn.execute("""
+            SELECT q.title as quiz_title, qr.score, qr.total,
+                   ROUND(CAST(qr.score AS FLOAT) / qr.total * 100, 1) as percentage,
+                   qr.created_at
+            FROM quiz_results qr
+            JOIN quizzes q ON qr.quiz_id = q.id
+            ORDER BY qr.created_at DESC
+            LIMIT 20
+        """).fetchall()
+    finally:
+        conn.close()
+    
+    # Создать PDF документ
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4)
+    elements = []
+    
+    # Стили
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle('CustomTitle', parent=styles['Heading1'], fontSize=18, spaceAfter=12)
+    
+    # Заголовок
+    elements.append(Paragraph("TestLearn — Отчёт о прогрессе", title_style))
+    elements.append(Spacer(1, 0.2*inch))
+    
+    # Информация о пользователе
+    user_info = [
+        ["Уровень:", str(progress.get('level', 1))],
+        ["Опыт:", f"{progress.get('experience', 0)} / {progress.get('next_level_xp', 100)} XP"],
+        ["Прочитано тем:", str(progress.get('topics_read', 0))],
+        ["Пройдено тестов:", str(progress.get('quizzes_passed', 0))],
+        ["Всего баллов:", str(progress.get('total_score', 0))],
+    ]
+    
+    user_table = Table(user_info, colWidths=[2*inch, 3*inch])
+    user_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.lightgrey),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    elements.append(user_table)
+    elements.append(Spacer(1, 0.3*inch))
+    
+    # Результаты тестов
+    elements.append(Paragraph("Результаты тестов", styles['Heading2']))
+    elements.append(Spacer(1, 0.1*inch))
+    
+    if results:
+        data = [["Тест", "Баллы", "Процент", "Дата"]]
+        for r in results:
+            data.append([
+                dict(r)["quiz_title"],
+                f"{dict(r)['score']}/{dict(r)['total']}",
+                f"{dict(r)['percentage']}%",
+                dict(r)["created_at"][:10]
+            ])
+        
+        results_table = Table(data, colWidths=[3*inch, 1*inch, 1*inch, 1.5*inch])
+        results_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ]))
+        elements.append(results_table)
+    else:
+        elements.append(Paragraph("Нет пройденных тестов", styles['Normal']))
+    
+    doc.build(elements)
+    buffer.seek(0)
+    
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=testlearn_progress.pdf"}
+    )
     <rect width="32" height="32" rx="6" fill="#059669"/>
     <path d="M16 6 L22 12 L26 12 L22 12 L22 20 C22 24.4 18.4 28 14 28 C9.6 28 6 24.4 6 20 L6 12 L10 12 L16 6Z" fill="none" stroke="white" stroke-width="2"/>
     <path d="M11 16 L14 19 L21 12" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>

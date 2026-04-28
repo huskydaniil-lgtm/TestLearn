@@ -598,3 +598,111 @@ class NotificationService:
             return cursor.rowcount > 0
         finally:
             conn.close()
+
+
+def seed_initial_data():
+    """Заполнение БД начальными данными через SQLAlchemy."""
+    from sqlalchemy.orm import Session
+    from app.db.database import SessionLocal
+    from app.db.models import Category, Topic, Quiz, Question, GlossaryTerm
+    
+    db = SessionLocal()
+    try:
+        # Проверяем, есть ли уже данные
+        if db.query(Category).count() > 0:
+            return
+        
+        # --- Категории ---
+        categories_data = [
+            Category(name="Функциональное тестирование", slug="functional", description="Проверка функциональности приложения согласно требованиям", icon="check-circle"),
+            Category(name="Нефункциональное тестирование", slug="non-functional", description="Тестирование производительности, безопасности и удобства", icon="shield"),
+            Category(name="Методологии тестирования", slug="methodologies", description="Подходы к организации процесса тестирования", icon="layers"),
+            Category(name="Инструменты тестирования", slug="tools", description="Обзор популярных инструментов и фреймворков", icon="wrench"),
+            Category(name="Процесс создания тестов", slug="test-creation", description="Разработка тест-кейсов, сценариев и чек-листов", icon="file-text"),
+        ]
+        
+        for cat in categories_data:
+            db.add(cat)
+        db.commit()
+        
+        # Получаем созданные категории
+        categories = db.query(Category).all()
+        cat_by_slug = {cat.slug: cat for cat in categories}
+        
+        # --- Темы ---
+        topics_data = [
+            ("functional", "Что такое функциональное тестирование",
+             "Функциональное тестирование — это вид тестирования программного обеспечения, "
+             "при котором проверяется соответствие системы функциональным требованиям."),
+            ("functional", "Чёрный и белый ящики: подходы к тестированию",
+             "Существует два основных подхода к проектированию тестов: чёрный и белый ящик."),
+            ("non-functional", "Тестирование производительности",
+             "Тестирование производительности оценивает скорость отклика и потребление ресурсов."),
+            ("non-functional", "Тестирование безопасности",
+             "Тестирование безопасности направлено на выявление уязвимостей в системе."),
+            ("methodologies", "TDD: Разработка через тестирование",
+             "TDD — методология, при которой тесты пишутся до написания кода."),
+            ("methodologies", "BDD: Поведенческая разработка",
+             "BDD описывает поведение системы на естественном языке."),
+            ("tools", "Selenium для автоматизации",
+             "Selenium — популярный инструмент для автоматизации веб-приложений."),
+            ("tools", "Postman для тестирования API",
+             "Postman позволяет тестировать REST API и создавать коллекции запросов."),
+            ("test-creation", "Написание тест-кейсов",
+             "Тест-кейс — документ, описывающий шаги для проверки функциональности."),
+            ("test-creation", "Чек-листы в тестировании",
+             "Чек-лист — список проверок для быстрого тестирования."),
+        ]
+        
+        for idx, (slug, title, content) in enumerate(topics_data):
+            category = cat_by_slug.get(slug)
+            if category:
+                topic = Topic(
+                    category_id=category.id,
+                    title=title,
+                    content=content,
+                    order_num=idx + 1
+                )
+                db.add(topic)
+        
+        # --- Тесты и вопросы ---
+        quiz = Quiz(category_id=cat_by_slug["functional"].id, title="Основы функционального тестирования", description="Проверьте свои знания")
+        db.add(quiz)
+        db.commit()
+        
+        questions_data = [
+            ("Что проверяет функциональное тестирование?", "Соответствие требованиям", "Производительность", "Безопасность", "Удобство", "A", "Функциональное тестирование проверяет соответствие ПО функциональным требованиям."),
+            ("Какой подход использует знание внутреннего устройства кода?", "Чёрный ящик", "Белый ящик", "Серый ящик", "Зелёный ящик", "B", "Белый ящик предполагает знание внутренней структуры кода."),
+        ]
+        
+        for q_text, opt_a, opt_b, opt_c, opt_d, correct, explanation in questions_data:
+            question = Question(
+                quiz_id=quiz.id,
+                question_text=q_text,
+                option_a=opt_a,
+                option_b=opt_b,
+                option_c=opt_c,
+                option_d=opt_d,
+                correct_option=correct,
+                explanation=explanation,
+                order_num=1
+            )
+            db.add(question)
+        
+        # --- Глоссарий ---
+        glossary_data = [
+            ("Баг", "Ошибка в программном обеспечении", "Б"),
+            ("Тест-кейс", "Документ с шагами для проверки функциональности", "Т"),
+            ("Регрессионное тестирование", "Повторное тестирование после изменений", "Р"),
+            ("Смоук-тестирование", "Быстрая проверка основной функциональности", "С"),
+        ]
+        
+        for term, definition, letter in glossary_data:
+            db.add(GlossaryTerm(term=term, definition=definition, letter=letter))
+        
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        print(f"Error seeding database: {e}")
+    finally:
+        db.close()

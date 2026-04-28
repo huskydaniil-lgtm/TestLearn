@@ -3,7 +3,7 @@ API routers for TestLearn application
 """
 from fastapi import APIRouter
 
-from app.routers import categories, topics, quizzes, auth, feedback, glossary, progress
+from app.routers import categories, topics, quizzes, auth, feedback, glossary, progress, gamification, social
 
 api_router = APIRouter()
 
@@ -14,3 +14,5 @@ api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
 api_router.include_router(feedback.router, prefix="/feedback", tags=["feedback"])
 api_router.include_router(glossary.router, prefix="/glossary", tags=["glossary"])
 api_router.include_router(progress.router, prefix="/progress", tags=["progress"])
+api_router.include_router(gamification.router, prefix="/gamification", tags=["gamification"])
+api_router.include_router(social.router, prefix="/social", tags=["social"])

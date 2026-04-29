@@ -48,6 +48,103 @@ app.include_router(gamification.router, prefix="/api/gamification", tags=["Gamif
 app.include_router(social.router, prefix="/api/social", tags=["Social"])
 
 
+# Frontend pages
+@app.get("/theory", include_in_schema=False)
+async def theory_page(request: Request):
+    """Теория раздел."""
+    from sqlalchemy.orm import Session
+    from app.db.database import get_db
+    from app.db.models import Category, Topic
+    
+    db: Session = next(get_db())
+    try:
+        # Get all categories
+        categories = db.query(Category).order_by(Category.order_num, Category.title).all()
+        
+        # Get all topics
+        topics = db.query(Topic).order_by(Topic.order_num, Topic.title).all()
+        
+        # Organize topics by category
+        topics_by_category = {}
+        for topic in topics:
+            if topic.category_id not in topics_by_category:
+                topics_by_category[topic.category_id] = []
+            topics_by_category[topic.category_id].append(topic)
+        
+        # Get all topic titles for datalist
+        all_topic_titles = [topic.title for topic in topics]
+        
+        # For now, assume no topics read (would be user-specific in real app)
+        topics_read = 0
+        total_topics = len(topics)
+        
+        # Get query parameters
+        query_params = dict(request.query_params)
+        active_category_id = int(query_params.get("category_id", 0)) if query_params.get("category_id") else None
+        search_query = query_params.get("search", "")
+        
+        return templates.TemplateResponse("theory.html", {
+            "request": request,
+            "categories": categories,
+            "topics_by_category": topics_by_category,
+            "all_topic_titles": all_topic_titles,
+            "topics_read": topics_read,
+            "total_topics": total_topics,
+            "active_category_id": active_category_id,
+            "search_query": search_query
+        })
+    finally:
+        db.close()
+
+
+@app.get("/quiz", include_in_schema=False)
+async def quiz_page(request: Request):
+    """Тесты раздел."""
+    return templates.TemplateResponse("quiz.html", {"request": request})
+
+
+@app.get("/glossary", include_in_schema=False)
+async def glossary_page(request: Request):
+    """Глоссарий раздел."""
+    return templates.TemplateResponse("glossary.html", {"request": request})
+
+
+@app.get("/bookmarks", include_in_schema=False)
+async def bookmarks_page(request: Request):
+    """Закладки раздел."""
+    return templates.TemplateResponse("bookmarks.html", {"request": request})
+
+
+@app.get("/stats", include_in_schema=False)
+async def stats_page(request: Request):
+    """Статистика раздел."""
+    return templates.TemplateResponse("stats.html", {"request": request})
+
+
+@app.get("/database", include_in_schema=False)
+async def database_page(request: Request):
+    """База данных раздел."""
+    return templates.TemplateResponse("database.html", {"request": request})
+
+
+@app.get("/about", include_in_schema=False)
+async def about_page(request: Request):
+    """О проекте раздел."""
+    return templates.TemplateResponse("about.html", {"request": request})
+
+
+@app.get("/feedback", include_in_schema=False)
+async def feedback_page(request: Request):
+    """Обратная связь раздел."""
+    return templates.TemplateResponse("feedback.html", {"request": request})
+
+
+@app.get("/login", include_in_schema=False)
+async def login_page(request: Request):
+    """Страница входа."""
+    return templates.TemplateResponse("login.html", {"request": request})
+
+
 @app.get("/", include_in_schema=False)
 async def home(request: Request):
     """Главная страница."""

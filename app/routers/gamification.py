@@ -4,7 +4,7 @@ Router for gamification features: leaderboard, certificates, achievements
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, UTC
 
 from app.db.database import get_db
 from app.db.models import UserProgress, QuizResult, Topic, ReadTopic, Category
@@ -92,7 +92,7 @@ def get_certificate(request: Request, db: Session = Depends(get_db)):
     certificate_data = {
         "user_name": f"User_{session_id[:8]}",
         "course_name": "Software Testing Fundamentals",
-        "completion_date": datetime.utcnow().isoformat(),
+        "completion_date": datetime.now(UTC).isoformat(),
         "score": avg_score,
         "level": level,
         "topics_completed": progress.topics_read,
@@ -173,7 +173,7 @@ def get_daily_challenge(db: Session = Depends(get_db)):
     if not quiz:
         raise HTTPException(status_code=404, detail="No quizzes available")
     
-    expires = datetime.utcnow().replace(hour=23, minute=59, second=59)
+    expires = datetime.now(UTC).replace(hour=23, minute=59, second=59)
     
     return {
         "id": 1,

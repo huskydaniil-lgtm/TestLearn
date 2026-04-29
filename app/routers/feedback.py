@@ -16,7 +16,7 @@ router = APIRouter()
 def get_feedback(db: Session = Depends(get_db)):
     """Get all feedback entries."""
     feedback_list = db.query(FeedbackModel).order_by(FeedbackModel.created_at.desc()).all()
-    
+
     return [
         {
             "id": f.id,
@@ -33,21 +33,21 @@ def get_feedback(db: Session = Depends(get_db)):
 @router.post("", response_model=FeedbackResponse)
 def create_feedback(feedback: FeedbackCreate, db: Session = Depends(get_db)):
     """Submit new feedback."""
-    from datetime import datetime
+    from datetime import datetime, UTC
     import uuid
-    
+
     db_feedback = FeedbackModel(
         id=str(uuid.uuid4()),
         name=feedback.name,
         email=feedback.email or "",
         message=feedback.message,
         rating=feedback.rating,
-        created_at=datetime.utcnow()
+        created_at=datetime.now(UTC)
     )
     db.add(db_feedback)
     db.commit()
     db.refresh(db_feedback)
-    
+
     return {
         "id": db_feedback.id,
         "name": db_feedback.name,

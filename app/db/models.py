@@ -3,7 +3,7 @@ SQLAlchemy models for TestLearn application
 """
 from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Boolean, Float, UniqueConstraint
 from sqlalchemy.orm import relationship
-from datetime import datetime
+from datetime import datetime, UTC
 import uuid
 from app.db.database import Base
 
@@ -76,7 +76,7 @@ class QuizResult(Base):
     quiz_id = Column(Integer, ForeignKey("quizzes.id"), nullable=False)
     score = Column(Integer, nullable=False)
     total = Column(Integer, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now(UTC))
 
     quiz = relationship("Quiz", back_populates="results")
 
@@ -98,7 +98,7 @@ class Feedback(Base):
     email = Column(String, default="")
     message = Column(Text, nullable=False)
     rating = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now(UTC))
 
 
 class UserProgress(Base):
@@ -109,7 +109,7 @@ class UserProgress(Base):
     topics_read = Column(Integer, default=0)
     quizzes_passed = Column(Integer, default=0)
     total_score = Column(Integer, default=0)
-    last_visit = Column(DateTime, default=datetime.utcnow)
+    last_visit = Column(DateTime, default=datetime.now(UTC))
 
 
 class ReadTopic(Base):
@@ -117,7 +117,7 @@ class ReadTopic(Base):
 
     session_id = Column(String, primary_key=True)
     topic_id = Column(Integer, primary_key=True)
-    read_at = Column(DateTime, default=datetime.utcnow)
+    read_at = Column(DateTime, default=datetime.now(UTC))
 
 
 class Bookmark(Base):
@@ -125,7 +125,7 @@ class Bookmark(Base):
 
     session_id = Column(String, primary_key=True)
     topic_id = Column(Integer, ForeignKey("topics.id"), primary_key=True)
-    bookmarked_at = Column(DateTime, default=datetime.utcnow)
+    bookmarked_at = Column(DateTime, default=datetime.now(UTC))
 
     topic = relationship("Topic", back_populates="bookmarks")
 
@@ -136,7 +136,7 @@ class AdminSession(Base):
     id = Column(String, primary_key=True)
     username = Column(String, nullable=False)
     expires = Column(DateTime, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now(UTC))
 
 
 class Comment(Base):
@@ -146,7 +146,7 @@ class Comment(Base):
     topic_id = Column(Integer, ForeignKey("topics.id"), nullable=False)
     user_id = Column(String, nullable=False)
     content = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now(UTC))
     likes = Column(Integer, default=0)
 
     topic = relationship("Topic", back_populates="comments")
@@ -161,7 +161,7 @@ class Notification(Base):
     message = Column(Text, nullable=False)
     type = Column(String, nullable=False)
     is_read = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now(UTC))
 
 
 class AdminUser(Base):
@@ -171,5 +171,5 @@ class AdminUser(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, nullable=False, index=True)
     password_hash = Column(String, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.now(UTC))
     is_active = Column(Boolean, default=True)

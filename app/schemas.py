@@ -1,7 +1,7 @@
 """
 Pydantic schemas for request/response validation
 """
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from typing import Optional, List
 from datetime import datetime
 
@@ -22,8 +22,7 @@ class CategoryResponse(CategoryBase):
     id: int
     topics_count: int = 0
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Topic schemas
@@ -42,8 +41,7 @@ class TopicResponse(TopicBase):
     id: int
     category_name: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Quiz schemas
@@ -61,8 +59,7 @@ class QuizResponse(QuizBase):
     id: int
     questions_count: int = 0
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Question schemas
@@ -85,8 +82,7 @@ class QuestionCreate(QuestionBase):
 class QuestionResponse(QuestionBase):
     id: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Quiz Result schemas
@@ -101,8 +97,7 @@ class QuizResultResponse(QuizResultCreate):
     created_at: datetime
     percentage: float = 0.0
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Glossary schemas
@@ -119,8 +114,7 @@ class GlossaryTermCreate(GlossaryTermBase):
 class GlossaryTermResponse(GlossaryTermBase):
     id: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Feedback schemas
@@ -135,8 +129,7 @@ class FeedbackResponse(FeedbackCreate):
     id: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # User Progress schemas
@@ -153,8 +146,7 @@ class UserProgressResponse(UserProgressBase):
     level: int = 1
     experience: int = 0
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Authentication schemas
@@ -180,8 +172,7 @@ class CommentResponse(CommentCreate):
     created_at: datetime
     likes: int = 0
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Achievement schemas
@@ -193,6 +184,8 @@ class AchievementSchema(BaseModel):
     unlocked: bool = False
     unlocked_at: Optional[datetime] = None
 
+    model_config = ConfigDict(from_attributes=True)
+
 
 # Daily Challenge schemas
 class DailyChallengeSchema(BaseModel):
@@ -203,12 +196,16 @@ class DailyChallengeSchema(BaseModel):
     bonus_xp: int = 50
     completed: bool = False
 
+    model_config = ConfigDict(from_attributes=True)
+
 
 # Leaderboard entry
 class LeaderboardEntry(BaseModel):
     session_id: str
     total_score: int
     rank: int
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Certificate
@@ -217,3 +214,5 @@ class CertificateSchema(BaseModel):
     course_name: str
     completion_date: str
     score: float
+
+    model_config = ConfigDict(from_attributes=True)

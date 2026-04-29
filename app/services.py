@@ -342,55 +342,48 @@ class RecommendationService:
 
 class LeaderboardService:
     """Сервис для управления таблицей лидеров."""
-    
+
     @staticmethod
     def get_leaderboard(limit: int = 10, db_name: str = "testlearn.db") -> List[LeaderboardEntry]:
         """Получить таблицу лидеров."""
-        conn = get_db_connection(db_name)
+        from app.db.database import SessionLocal
+        from app.db.models import UserProgress, QuizResult
+
+        db = SessionLocal()
         try:
-            cursor = conn.cursor()
-            
-            cursor.execute("""
-                SELECT 
-                    id as user_id,
-                    session_id as username,
-                    total_score as experience,
-                    quizzes_passed,
-                    topics_read
-                FROM user_progress
-                ORDER BY total_score DESC, quizzes_passed DESC
-                LIMIT ?
-            """, (limit,))
-            
+            progress_entries = db.query(UserProgress).order_by(
+                UserProgress.total_score.desc(),
+                UserProgress.quizzes_passed.desc()
+            ).limit(limit).all()
+
             leaderboard = []
-            for rank, row in enumerate(cursor.fetchall(), 1):
-                # Рассчитать уровень
-                level, xp, _ = ProgressService.calculate_level(row["experience"])
-                
-                # Рассчитать средний балл
+            for rank, entry in enumerate(progress_entries, 1):
+                # Calculate average score from quiz_results for this user
                 avg_score = 0.0
-                if row["quizzes_passed"] > 0:
-                    cursor.execute("""
-                        SELECT AVG(CAST(score AS FLOAT) / total * 100)
-                        FROM quiz_results
-                    """)
-                    avg_result = cursor.fetchone()[0]
-                    if avg_result:
-                        avg_score = round(avg_result, 1)
-                
+                results = db.query(QuizResult).filter(QuizResult.user_progress_id == entry.id).all()
+                if results:
+                    total_percentage = sum(
+                        (r.score / r.total * 100) if r.total > 0 else 0
+                        for r in results
+                    )
+                    avg_score = round(total_percentage / len(results), 1)
+
+                # Calculate level
+                level, _, _ = ProgressService.calculate_level(entry.total_score)
+
                 leaderboard.append(LeaderboardEntry(
                     rank=rank,
-                    user_id=row["user_id"],
-                    username=f"User_{row['username'][:8]}",
+                    user_id=entry.id,
+                    username=f"User_{entry.session_id[:8]}",
                     level=level,
-                    experience=row["experience"],
-                    quizzes_passed=row["quizzes_passed"],
+                    experience=entry.total_score,
+                    quizzes_passed=entry.quizzes_passed,
                     average_score=avg_score
                 ))
-            
+
             return leaderboard
         finally:
-            conn.close()
+            db.close()
 
 
 class CertificateService:

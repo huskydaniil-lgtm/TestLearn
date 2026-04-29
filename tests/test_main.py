@@ -51,7 +51,7 @@ def test_api_feedback():
     """Test feedback endpoint."""
     response = client.post(
         "/api/feedback",
-        data={"name": "Test User", "message": "Test message"}
+        json={"name": "Test User", "message": "Test message"}
     )
     assert response.status_code == 200
 
@@ -67,7 +67,7 @@ def test_auth_login_failure():
 
 def test_gamification_leaderboard():
     """Test leaderboard endpoint."""
-    response = client.get("/api/gamification/leaderboard")
+    response = client.get("/api/leaderboard")
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
@@ -75,7 +75,7 @@ def test_gamification_leaderboard():
 
 def test_gamification_achievements():
     """Test achievements endpoint."""
-    response = client.get("/api/gamification/achievements")
+    response = client.get("/api/achievements")
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)

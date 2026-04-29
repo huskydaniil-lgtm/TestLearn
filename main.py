@@ -12,7 +12,7 @@ from contextlib import asynccontextmanager
 from app.routers import auth, categories, topics, quizzes, glossary, feedback, progress, gamification, social
 from app.db.database import engine, Base
 from app.db import models  # Импортируем модели для регистрации в Alembic
-from app.services import seed_initial_data
+from app.services import seed_initial_data, LeaderboardService
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -44,7 +44,7 @@ app.include_router(quizzes.router, prefix="/api/quizzes", tags=["Quizzes"])
 app.include_router(glossary.router, prefix="/api/glossary", tags=["Glossary"])
 app.include_router(feedback.router, prefix="/api/feedback", tags=["Feedback"])
 app.include_router(progress.router, prefix="/api/progress", tags=["Progress"])
-app.include_router(gamification.router, prefix="/api/gamification", tags=["Gamification"])
+app.include_router(gamification.router, prefix="/api", tags=["Gamification"])
 app.include_router(social.router, prefix="/api/social", tags=["Social"])
 
 
@@ -275,7 +275,7 @@ async def stats_page(request: Request):
 @app.get("/bookmarks", include_in_schema=False)
 async def bookmarks_page(request: Request):
     """Закладки раздел."""
-    return templates.TemplateResponse("bookmarks.html", {"request": request})
+    return templates.TemplateResponse(request, "bookmarks.html", {"request": request})
 
 
 @app.get("/database", include_in_schema=False)
@@ -315,12 +315,22 @@ async def database_page(request: Request):
                 'columns': columns
             })
 
-        return templates.TemplateResponse("database.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "database.html", {
             "tables_info": tables_info
         })
     finally:
         db.close()
+
+
+@app.get("/leaderboard", include_in_schema=False)
+async def leaderboard_page(request: Request):
+    """Таблица лидеров раздел."""
+    # Get leaderboard data from service
+    leaderboard_data = LeaderboardService.get_leaderboard(limit=10)
+    return templates.TemplateResponse("leaderboard.html", {
+        "request": request,
+        "leaderboard": leaderboard_data
+    })
 
 
 @app.get("/about", include_in_schema=False)
@@ -332,7 +342,7 @@ async def about_page(request: Request):
 @app.get("/feedback", include_in_schema=False)
 async def feedback_page(request: Request):
     """Обратная связь раздел."""
-    return templates.TemplateResponse("feedback.html", {"request": request})
+    return templates.TemplateResponse(request, "feedback.html", {"request": request})
 
 
 @app.get("/login", include_in_schema=False)

@@ -191,7 +191,8 @@ async def stats_page(request: Request):
     from sqlalchemy.orm import Session
     from app.db.database import get_db
     from app.db.models import UserProgress, Topic, Category, QuizResult, Quiz
-    
+    from sqlalchemy import func
+
     db: Session = next(get_db())
     try:
         # Get or create user progress (using a default session for simplicity)
@@ -204,10 +205,10 @@ async def stats_page(request: Request):
                 quizzes_passed = 0
                 total_score = 0
             progress = Progress()
-        
+
         # Get total topics
         total_topics = db.query(Topic).count()
-        
+
         # Get categories with topic count
         categories_with_stats = db.query(Category, func.count(Topic.id).label('topic_count'))\
             .outerjoin(Topic, Category.id == Topic.category_id)\
@@ -215,17 +216,17 @@ async def stats_page(request: Request):
             .all()
         # Convert to list of objects with name and topic_count attributes
         categories_with_stats = [{'name': cat.Category.name, 'topic_count': cat.topic_count} for cat in categories_with_stats]
-        
+
         # Get total quiz results
         total_results = db.query(QuizResult).count()
-        
+
         # Get average score percentage
         avg_score_result = db.query(func.avg(QuizResult.score * 100.0 / QuizResult.total)).scalar()
         avg_score = round(avg_score_result) if avg_score_result is not None else 0
-        
+
         # Get total quizzes
         total_quizzes = db.query(Quiz).count()
-        
+
         # Get score distribution (ranges: 0-49, 50-69, 70-89, 90-100)
         score_distribution = []
         ranges = [(0, 49), (50, 69), (70, 89), (90, 100)]
@@ -238,7 +239,7 @@ async def stats_page(request: Request):
                 'range_label': f'{min_score}-{max_score}%',
                 'count': count
             })
-        
+
         # Get top results (top 5 by score percentage)
         top_results_query = db.query(QuizResult, Quiz.title.label('quiz_title'))\
             .join(Quiz, QuizResult.quiz_id == Quiz.id)\
@@ -255,7 +256,7 @@ async def stats_page(request: Request):
                 'created_at': result.created_at.strftime('%Y-%m-%d') if result.created_at else '',
                 'percentage': percentage
             })
-        
+
         return templates.TemplateResponse("stats.html", {
             "request": request,
             "progress": progress,
@@ -280,7 +281,46 @@ async def bookmarks_page(request: Request):
 @app.get("/database", include_in_schema=False)
 async def database_page(request: Request):
     """База данных раздел."""
-    return templates.TemplateResponse("database.html", {"request": request})
+    from sqlalchemy import text
+    from sqlalchemy.orm import Session
+    from app.db.database import get_db
+
+    db: Session = next(get_db())
+    try:
+        # Get list of tables (excluding SQLite system tables)
+        tables_query = db.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';"))
+        table_names = [row[0] for row in tables_query.fetchall()]
+
+        tables_info = []
+        for table_name in table_names:
+            # Get row count
+            count_query = db.execute(text(f"SELECT COUNT FROM `{table_name}`;"))
+            count = count_query.scalar()
+
+            # Get column info
+            pragma_query = db.execute(text(f"PRAGMA table_info(`{table_name}`);"))
+            columns = []
+            for col in pragma_query.fetchall():
+                # col: (cid, name, type, notnull, dflt_value, pk)
+                columns.append({
+                    'name': col[1],
+                    'type': col[2],
+                    'pk': bool(col[5]),
+                    'notnull': bool(col[3])
+                })
+
+            tables_info.append({
+                'name': table_name,
+                'count': count,
+                'columns': columns
+            })
+
+        return templates.TemplateResponse("database.html", {
+            "request": request,
+            "tables_info": tables_info
+        })
+    finally:
+        db.close()
 
 
 @app.get("/about", include_in_schema=False)

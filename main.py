@@ -58,8 +58,8 @@ async def theory_page(request: Request):
     
     db: Session = next(get_db())
     try:
-        # Get all categories
-        categories = db.query(Category).order_by(Category.order_num, Category.title).all()
+        # Get all categories (ordered by name)
+        categories = db.query(Category).order_by(Category.name).all()
         
         # Get all topics
         topics = db.query(Topic).order_by(Topic.order_num, Topic.title).all()
@@ -100,25 +100,181 @@ async def theory_page(request: Request):
 @app.get("/quiz", include_in_schema=False)
 async def quiz_page(request: Request):
     """Тесты раздел."""
-    return templates.TemplateResponse("quiz.html", {"request": request})
+    from sqlalchemy.orm import Session
+    from app.db.database import get_db
+    from app.db.models import Quiz, Question
+    
+    db: Session = next(get_db())
+    try:
+        # Get the first quiz available (or create a default one if none)
+        quiz = db.query(Quiz).first()
+        if not quiz:
+            # If no quiz exists, we'll create a placeholder for demonstration
+            # In a real app, you might redirect to a create quiz page or show a message
+            quiz = Quiz(id=0, title="Доступные тесты", description="Пока нет доступных тестов")
+            questions = []
+        else:
+            # Get questions for this quiz
+            questions = db.query(Question).filter(Question.quiz_id == quiz.id).order_by(Question.order_num).all()
+            # Convert to list of dicts for template
+            questions = [{
+                "id": q.id,
+                "question_text": q.question_text,
+                "option_a": q.option_a,
+                "option_b": q.option_b,
+                "option_c": q.option_c,
+                "option_d": q.option_d
+            } for q in questions]
+        
+        # Set a default time limit (15 minutes in seconds)
+        time_limit = 900
+        
+        return templates.TemplateResponse("quiz.html", {
+            "request": request,
+            "quiz": quiz,
+            "questions": questions,
+            "time_limit": time_limit
+        })
+    finally:
+        db.close()
 
 
 @app.get("/glossary", include_in_schema=False)
 async def glossary_page(request: Request):
     """Глоссарий раздел."""
-    return templates.TemplateResponse("glossary.html", {"request": request})
+    from sqlalchemy.orm import Session
+    from app.db.database import get_db
+    from app.db.models import GlossaryTerm
+    
+    db: Session = next(get_db())
+    try:
+        # Get query parameters
+        query_params = dict(request.query_params)
+        active_letter = query_params.get("letter", "")
+        search_query = query_params.get("search", "")
+        
+        # Build query
+        query = db.query(GlossaryTerm)
+        
+        # Filter by letter if provided
+        if active_letter:
+            query = query.filter(GlossaryTerm.letter == active_letter.upper())
+        
+        # Filter by search query if provided
+        if search_query:
+            search_term = f"%{search_query}%"
+            query = query.filter(
+                (GlossaryTerm.term.ilike(search_term)) |
+                (GlossaryTerm.definition.ilike(search_term))
+            )
+        
+        # Get terms
+        terms = query.order_by(GlossaryTerm.term).all()
+        
+        # Get all distinct letters for navigation
+        all_letters = [chr(i) for i in range(ord('A'), ord('Z')+1)]
+        
+        return templates.TemplateResponse("glossary.html", {
+            "request": request,
+            "terms": terms,
+            "all_letters": all_letters,
+            "active_letter": active_letter,
+            "search_query": search_query
+        })
+    finally:
+        db.close()
+
+
+@app.get("/stats", include_in_schema=False)
+async def stats_page(request: Request):
+    """Статистика раздел."""
+    from sqlalchemy.orm import Session
+    from app.db.database import get_db
+    from app.db.models import UserProgress, Topic, Category, QuizResult, Quiz
+    
+    db: Session = next(get_db())
+    try:
+        # Get or create user progress (using a default session for simplicity)
+        session_id = 'default_session'
+        progress = db.query(UserProgress).filter(UserProgress.session_id == session_id).first()
+        if progress is None:
+            # Create a temporary progress object with zeros
+            class Progress:
+                topics_read = 0
+                quizzes_passed = 0
+                total_score = 0
+            progress = Progress()
+        
+        # Get total topics
+        total_topics = db.query(Topic).count()
+        
+        # Get categories with topic count
+        categories_with_stats = db.query(Category, func.count(Topic.id).label('topic_count'))\
+            .outerjoin(Topic, Category.id == Topic.category_id)\
+            .group_by(Category.id)\
+            .all()
+        # Convert to list of objects with name and topic_count attributes
+        categories_with_stats = [{'name': cat.Category.name, 'topic_count': cat.topic_count} for cat in categories_with_stats]
+        
+        # Get total quiz results
+        total_results = db.query(QuizResult).count()
+        
+        # Get average score percentage
+        avg_score_result = db.query(func.avg(QuizResult.score * 100.0 / QuizResult.total)).scalar()
+        avg_score = round(avg_score_result) if avg_score_result is not None else 0
+        
+        # Get total quizzes
+        total_quizzes = db.query(Quiz).count()
+        
+        # Get score distribution (ranges: 0-49, 50-69, 70-89, 90-100)
+        score_distribution = []
+        ranges = [(0, 49), (50, 69), (70, 89), (90, 100)]
+        for min_score, max_score in ranges:
+            count = db.query(QuizResult).filter(
+                (QuizResult.score * 100.0 / QuizResult.total) >= min_score,
+                (QuizResult.score * 100.0 / QuizResult.total) <= max_score
+            ).count()
+            score_distribution.append({
+                'range_label': f'{min_score}-{max_score}%',
+                'count': count
+            })
+        
+        # Get top results (top 5 by score percentage)
+        top_results_query = db.query(QuizResult, Quiz.title.label('quiz_title'))\
+            .join(Quiz, QuizResult.quiz_id == Quiz.id)\
+            .order_by((QuizResult.score * 100.0 / QuizResult.total).desc())\
+            .limit(5)\
+            .all()
+        top_results = []
+        for result, quiz_title in top_results_query:
+            percentage = int((result.score / result.total * 100)) if result.total > 0 else 0
+            top_results.append({
+                'quiz_title': quiz_title,
+                'score': result.score,
+                'total': result.total,
+                'created_at': result.created_at.strftime('%Y-%m-%d') if result.created_at else '',
+                'percentage': percentage
+            })
+        
+        return templates.TemplateResponse("stats.html", {
+            "request": request,
+            "progress": progress,
+            "total_topics": total_topics,
+            "categories_with_stats": categories_with_stats,
+            "total_results": total_results,
+            "avg_score": avg_score,
+            "total_quizzes": total_quizzes,
+            "score_distribution": score_distribution,
+            "top_results": top_results
+        })
+    finally:
+        db.close()
 
 
 @app.get("/bookmarks", include_in_schema=False)
 async def bookmarks_page(request: Request):
     """Закладки раздел."""
     return templates.TemplateResponse("bookmarks.html", {"request": request})
-
-
-@app.get("/stats", include_in_schema=False)
-async def stats_page(request: Request):
-    """Статистика раздел."""
-    return templates.TemplateResponse("stats.html", {"request": request})
 
 
 @app.get("/database", include_in_schema=False)

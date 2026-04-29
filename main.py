@@ -14,7 +14,6 @@ from app.db.database import engine, Base
 from app.db import models  # Импортируем модели для регистрации в Alembic
 from app.services import seed_initial_data
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan handler для инициализации БД при запуске."""
@@ -55,7 +54,7 @@ async def home(request: Request):
     from sqlalchemy.orm import Session
     from app.db.database import get_db
     from app.db.models import Category, Topic, Question, GlossaryTerm
-    
+
     # Получаем статистику
     db = next(get_db())
     try:
@@ -67,5 +66,5 @@ async def home(request: Request):
         }
     finally:
         db.close()
-    
+
     return templates.TemplateResponse("index.html", {"request": request, "stats": stats})

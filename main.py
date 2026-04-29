@@ -2,7 +2,6 @@
 FastAPI приложение: Учебная платформа по основам тестирования программного обеспечения
 Улучшенная версия с модульной архитектурой, SQLAlchemy и безопасной аутентификацией
 """
-
 from fastapi import FastAPI, Request, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -13,6 +12,7 @@ from app.routers import auth, categories, topics, quizzes, glossary, feedback, p
 from app.db.database import engine, Base
 from app.db import models  # Импортируем модели для регистрации в Alembic
 from app.services import seed_initial_data, LeaderboardService
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -55,34 +55,34 @@ async def theory_page(request: Request):
     from sqlalchemy.orm import Session
     from app.db.database import get_db
     from app.db.models import Category, Topic
-    
+
     db: Session = next(get_db())
     try:
         # Get all categories (ordered by name)
         categories = db.query(Category).order_by(Category.name).all()
-        
+
         # Get all topics
         topics = db.query(Topic).order_by(Topic.order_num, Topic.title).all()
-        
+
         # Organize topics by category
         topics_by_category = {}
         for topic in topics:
             if topic.category_id not in topics_by_category:
                 topics_by_category[topic.category_id] = []
             topics_by_category[topic.category_id].append(topic)
-        
+
         # Get all topic titles for datalist
         all_topic_titles = [topic.title for topic in topics]
-        
+
         # For now, assume no topics read (would be user-specific in real app)
         topics_read = 0
         total_topics = len(topics)
-        
+
         # Get query parameters
         query_params = dict(request.query_params)
         active_category_id = int(query_params.get("category_id", 0)) if query_params.get("category_id") else None
         search_query = query_params.get("search", "")
-        
+
         return templates.TemplateResponse("theory.html", {
             "request": request,
             "categories": categories,
@@ -103,7 +103,7 @@ async def quiz_page(request: Request):
     from sqlalchemy.orm import Session
     from app.db.database import get_db
     from app.db.models import Quiz, Question
-    
+
     db: Session = next(get_db())
     try:
         # Get the first quiz available (or create a default one if none)
@@ -125,10 +125,10 @@ async def quiz_page(request: Request):
                 "option_c": q.option_c,
                 "option_d": q.option_d
             } for q in questions]
-        
+
         # Set a default time limit (15 minutes in seconds)
         time_limit = 900
-        
+
         return templates.TemplateResponse("quiz.html", {
             "request": request,
             "quiz": quiz,
@@ -145,21 +145,21 @@ async def glossary_page(request: Request):
     from sqlalchemy.orm import Session
     from app.db.database import get_db
     from app.db.models import GlossaryTerm
-    
+
     db: Session = next(get_db())
     try:
         # Get query parameters
         query_params = dict(request.query_params)
         active_letter = query_params.get("letter", "")
         search_query = query_params.get("search", "")
-        
+
         # Build query
         query = db.query(GlossaryTerm)
-        
+
         # Filter by letter if provided
         if active_letter:
             query = query.filter(GlossaryTerm.letter == active_letter.upper())
-        
+
         # Filter by search query if provided
         if search_query:
             search_term = f"%{search_query}%"
@@ -167,13 +167,13 @@ async def glossary_page(request: Request):
                 (GlossaryTerm.term.ilike(search_term)) |
                 (GlossaryTerm.definition.ilike(search_term))
             )
-        
+
         # Get terms
         terms = query.order_by(GlossaryTerm.term).all()
-        
+
         # Get all distinct letters for navigation
         all_letters = [chr(i) for i in range(ord('A'), ord('Z')+1)]
-        
+
         return templates.TemplateResponse("glossary.html", {
             "request": request,
             "terms": terms,
@@ -275,7 +275,7 @@ async def stats_page(request: Request):
 @app.get("/bookmarks", include_in_schema=False)
 async def bookmarks_page(request: Request):
     """Закладки раздел."""
-    return templates.TemplateResponse(request, "bookmarks.html", {"request": request})
+    return templates.TemplateResponse("bookmarks.html", {"request": request})
 
 
 @app.get("/database", include_in_schema=False)
@@ -294,11 +294,11 @@ async def database_page(request: Request):
         tables_info = []
         for table_name in table_names:
             # Get row count
-            count_query = db.execute(text(f"SELECT COUNT FROM `{table_name}`;"))
-            count = count_query.scalar()
+            count_query = db.execute(text(f'SELECT COUNT(*) as count FROM "{table_name}";'))
+            count = count_query.scalar() or 0
 
-            # Get column info
-            pragma_query = db.execute(text(f"PRAGMA table_info(`{table_name}`);"))
+            # Get column info using PRAGMA
+            pragma_query = db.execute(text(f'PRAGMA table_info("{table_name}");'))
             columns = []
             for col in pragma_query.fetchall():
                 # col: (cid, name, type, notnull, dflt_value, pk)
@@ -308,14 +308,14 @@ async def database_page(request: Request):
                     'pk': bool(col[5]),
                     'notnull': bool(col[3])
                 })
-
             tables_info.append({
                 'name': table_name,
                 'count': count,
                 'columns': columns
             })
 
-        return templates.TemplateResponse(request, "database.html", {
+        return templates.TemplateResponse("database.html", {
+            "request": request,
             "tables_info": tables_info
         })
     finally:
@@ -342,7 +342,7 @@ async def about_page(request: Request):
 @app.get("/feedback", include_in_schema=False)
 async def feedback_page(request: Request):
     """Обратная связь раздел."""
-    return templates.TemplateResponse(request, "feedback.html", {"request": request})
+    return templates.TemplateResponse("feedback.html", {"request": request})
 
 
 @app.get("/login", include_in_schema=False)

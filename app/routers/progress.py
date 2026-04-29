@@ -6,10 +6,20 @@ from sqlalchemy.orm import Session
 from typing import List, Dict, Any
 from datetime import datetime, UTC
 import uuid
+import io
 
 from app.db.database import get_db
 from app.db.models import UserProgress, ReadTopic, Bookmark, QuizResult, Topic
 from app.schemas import UserProgressResponse
+
+# PDF generation
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 
 router = APIRouter()
 
@@ -304,3 +314,156 @@ def get_progress_stats(request: Request, db: Session = Depends(get_db)):
         "unlocked_achievements": unlocked_achievements,
         "daily_challenge": daily_challenge
     }
+
+
+@router.get("/stats/export/pdf")
+def export_progress_pdf(request: Request, db: Session = Depends(get_db)):
+    """Export user progress as PDF report."""
+    session_id = request.cookies.get("session_id", "anonymous")
+
+    # Get user progress
+    progress = db.query(UserProgress).filter(
+        UserProgress.session_id == session_id
+    ).first()
+
+    if not progress:
+        # For anonymous users or users without progress, create minimal report
+        progress_data = {
+            "topics_read": 0,
+            "quizzes_passed": 0,
+            "total_score": 0,
+            "level": 1,
+            "experience": 0,
+            "last_visit": None
+        }
+        username = "Анонимный пользователь"
+    else:
+        # Calculate level and experience
+        experience = progress.total_score
+        level = 1
+        xp_required = 100
+        total_xp = experience
+
+        while total_xp >= xp_required:
+            total_xp -= xp_required
+            level += 1
+            xp_required = int(xp_required * 1.5)
+
+        progress_data = {
+            "topics_read": progress.topics_read,
+            "quizzes_passed": progress.quizzes_passed,
+            "total_score": progress.total_score,
+            "level": level,
+            "experience": experience,
+            "last_visit": progress.last_visit
+        }
+        username = f"User_{session_id[:8]}" if session_id != "anonymous" else "Анонимный пользователь"
+
+    # Get unlocked achievements count
+    achievements = [
+        progress.topics_read >= 1,
+        progress.topics_read >= 5,
+        progress.topics_read >= 10,
+        progress.quizzes_passed >= 1,
+        progress.quizzes_passed >= 5,
+        progress.total_score >= 100
+    ]
+    unlocked_count = sum(achievements)
+
+    # Get recent quiz results
+    recent_results = db.query(QuizResult).order_by(QuizResult.completed_at.desc()).limit(5).all() if progress else []
+
+    # Create PDF buffer
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4)
+    styles = getSampleStyleSheet()
+    story = []
+
+    # Title
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=24,
+        spaceAfter=30,
+        alignment=1  # center
+    )
+    story.append(Paragraph("Отчет о прогрессе обучения", title_style))
+    story.append(Spacer(1, 20))
+
+    # User info
+    story.append(Paragraph(f"<b>Пользователь:</b> {username}", styles['Normal']))
+    story.append(Paragraph(f"<b>Дата отчета:</b> {datetime.now(UTC).strftime('%d.%m.%Y %H:%M')}", styles['Normal']))
+    story.append(Spacer(1, 20))
+
+    # Progress metrics
+    story.append(Paragraph("<b>Основные показатели:</b>", styles['Heading2']))
+    progress_data_list = [
+        ["Показатель", "Значение"],
+        ["Прочитано тем", str(progress_data["topics_read"])],
+        ["Сдано тестов", str(progress_data["quizzes_passed"])],
+        ["Общий балл", str(progress_data["total_score"])],
+        ["Уровень", str(progress_data["level"])],
+        ["Опыт (XP)", str(progress_data["experience"])],
+        ["Разблокировано достижений", f"{unlocked_count}/6"]
+    ]
+
+    progress_table = Table(progress_data_list, colWidths=[200, 100])
+    progress_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    ]))
+    story.append(progress_table)
+    story.append(Spacer(1, 20))
+
+    # Recent quiz results
+    if recent_results:
+        story.append(Paragraph("<b>Последние результаты тестов:</b>", styles['Heading2']))
+        quiz_data = [["Тест", "Балл", "Максимум", "Процент", "Дата"]]
+        for result in recent_results:
+            percentage = (result.score / result.total * 100) if result.total > 0 else 0
+            quiz_data.append([
+                f"Тест #{result.quiz_id}",
+                str(result.score),
+                str(result.total),
+                f"{percentage:.1f}%",
+                result.completed_at.strftime("%d.%m.%Y") if result.completed_at else "Не указано"
+            ])
+
+        quiz_table = Table(quiz_data, colWidths=[100, 60, 60, 60, 80])
+        quiz_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)
+        ]))
+        story.append(quiz_table)
+    else:
+        story.append(Paragraph("<i>Нет данных о результатах тестов</i>", styles['Normal']))
+
+    story.append(Spacer(1, 20))
+
+    # Footer
+    story.append(Paragraph("Отчет создан с использованием платформы TestLearn", styles['Italic']))
+    story.append(Paragraph("© 2026 TestLearn. Все права защищены.", styles['Italic']))
+
+    # Build PDF
+    doc.build(story)
+    buffer.seek(0)
+
+    # Return PDF as response
+    from fastapi.responses import StreamingResponse
+    return StreamingResponse(
+        io.BytesIO(buffer.read()),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=progress_report_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.pdf"}
+    )

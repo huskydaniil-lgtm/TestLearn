@@ -1,13 +1,12 @@
-"""
-Router for gamification features: leaderboard, certificates, achievements
-"""
+""" Router for gamification features: leaderboard, certificates, achievements """
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, UTC
+from sqlalchemy import func
 
 from app.db.database import get_db
-from app.db.models import UserProgress, QuizResult, Topic, ReadTopic, Category
+from app.db.models import UserProgress, QuizResult, Topic, ReadTopic, Category, Quiz
 from app.schemas import LeaderboardEntry, CertificateSchema
 
 router = APIRouter()
@@ -20,19 +19,9 @@ def get_leaderboard(limit: int = 10, db: Session = Depends(get_db)):
         UserProgress.total_score.desc(),
         UserProgress.quizzes_passed.desc()
     ).limit(limit).all()
-    
+
     leaderboard = []
     for rank, entry in enumerate(progress_entries, 1):
-        # Calculate average score
-        avg_score = 0.0
-        results = db.query(QuizResult).all()
-        if results:
-            total_percentage = sum(
-                (r.score / r.total * 100) if r.total > 0 else 0 
-                for r in results
-            )
-            avg_score = round(total_percentage / len(results), 1) if results else 0.0
-        
         # Calculate level from experience
         level = 1
         xp_required = 100
@@ -41,13 +30,13 @@ def get_leaderboard(limit: int = 10, db: Session = Depends(get_db)):
             remaining_xp -= xp_required
             level += 1
             xp_required = int(xp_required * 1.5)
-        
+
         leaderboard.append(LeaderboardEntry(
             session_id=entry.session_id,
             total_score=entry.total_score,
             rank=rank
         ))
-    
+
     return leaderboard
 
 
@@ -55,31 +44,30 @@ def get_leaderboard(limit: int = 10, db: Session = Depends(get_db)):
 def get_certificate(request: Request, db: Session = Depends(get_db)):
     """Generate certificate for user if eligible."""
     session_id = request.cookies.get("session_id", "anonymous")
-    
+
     progress = db.query(UserProgress).filter(
         UserProgress.session_id == session_id
     ).first()
-    
+
     if not progress:
         raise HTTPException(status_code=404, detail="No progress found")
-    
+
     # Check requirements: at least 5 quizzes passed
     if progress.quizzes_passed < 5:
         raise HTTPException(
-            status_code=400, 
+            status_code=400,
             detail=f"Need to pass at least 5 quizzes (current: {progress.quizzes_passed})"
         )
-    
+
     # Calculate statistics
     results = db.query(QuizResult).all()
     avg_score = 0.0
     if results:
         total_percentage = sum(
-            (r.score / r.total * 100) if r.total > 0 else 0 
-            for r in results
+            (r.score / r.total * 100) if r.total > 0 else 0 for r in results
         )
         avg_score = round(total_percentage / len(results), 1)
-    
+
     # Calculate level
     level = 1
     xp_required = 100
@@ -88,7 +76,7 @@ def get_certificate(request: Request, db: Session = Depends(get_db)):
         remaining_xp -= xp_required
         level += 1
         xp_required = int(xp_required * 1.5)
-    
+
     certificate_data = {
         "user_name": f"User_{session_id[:8]}",
         "course_name": "Software Testing Fundamentals",
@@ -98,7 +86,7 @@ def get_certificate(request: Request, db: Session = Depends(get_db)):
         "topics_completed": progress.topics_read,
         "quizzes_passed": progress.quizzes_passed
     }
-    
+
     return certificate_data
 
 
@@ -106,14 +94,14 @@ def get_certificate(request: Request, db: Session = Depends(get_db)):
 def get_achievements(request: Request, db: Session = Depends(get_db)):
     """Get user achievements based on progress."""
     session_id = request.cookies.get("session_id", "anonymous")
-    
+
     progress = db.query(UserProgress).filter(
         UserProgress.session_id == session_id
     ).first()
-    
+
     if not progress:
         return []
-    
+
     achievements = [
         {
             "id": 1,
@@ -158,26 +146,24 @@ def get_achievements(request: Request, db: Session = Depends(get_db)):
             "unlocked": progress.total_score >= 100
         }
     ]
-    
+
     return achievements
 
 
 @router.get("/daily-challenge")
 def get_daily_challenge(db: Session = Depends(get_db)):
     """Get daily challenge (random quiz with bonus XP)."""
-    from sqlalchemy import func
-    
     # Get random quiz
-    quiz = db.query(QuizResult).order_by(func.random()).first()
-    
+    quiz = db.query(Quiz).order_by(func.random()).first()
+
     if not quiz:
         raise HTTPException(status_code=404, detail="No quizzes available")
-    
+
     expires = datetime.now(UTC).replace(hour=23, minute=59, second=59)
-    
+
     return {
         "id": 1,
-        "quiz_id": quiz.quiz_id,
+        "quiz_id": quiz.id,
         "title": "Ежедневный вызов",
         "description": "Пройдите тест и получите 50 XP!",
         "bonus_xp": 50,
